@@ -11,16 +11,24 @@
         (utility_supported_os.get(utility_os_name, []) + utility_planned_os.get(utility_os_name, []))
         | select('in', [utility_os_version, utility_os_version.split('.')[0]]) | list | length > 0
     fail_msg: >-
-      utility: desteklenmeyen sistem ({{ utility_os_name }} {{ utility_os_version }}). v0.1 yalnızca Ubuntu 26.04 destekler
-      (Debian 13 planlanmış, doğrulanmadı). Proxmox VE ve Raspberry Pi kapsam dışıdır.
+      utility: desteklenmeyen sistem ({{ utility_os_name }} {{ utility_os_version }}). v0.1 yalnızca Ubuntu 26.04 ve Debian 13 destekler.
+      Proxmox VE ve Raspberry Pi kapsam dışıdır.
     quiet: true
 
-- name: Warn that Debian 13 is not verified
-  ansible.builtin.debug:
-    msg: >-
-      UYARI (utility): {{ utility_os_name }} {{ utility_os_version }} doğrulanmış profil değil (planned). Chrony kurulumu, systemd-timesyncd'nin
-      yerini alması ve conf.d/sources.d varlığı gerçek bir Debian 13 üzerinde denenmedi; sonucu elle kontrol edin.
-  when: utility_planned_os.get(utility_os_name, []) | select('in', [utility_os_version, utility_os_version.split('.')[0]]) | list | length > 0
+# Proxmox VE 9 Debian 13 tabanlıdır ve ansible_facts'te "Debian" görünür: OS eşlemesi onu yakalayamaz. --check'te de çalışır (yalnızca okur).
+- name: Detect Proxmox VE
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: [/usr/bin/pveversion, /etc/pve]
+  register: utility_pve
+  check_mode: false
+
+- name: Refuse Proxmox VE
+  ansible.builtin.assert:
+    that: utility_pve.results | selectattr('stat.exists') | list | length == 0
+    fail_msg: >-
+      utility: Proxmox VE tespit edildi (/usr/bin/pveversion ya da /etc/pve var). Proxmox VE v0.1 kapsam dışıdır; hiçbir şey değiştirilmedi.
+    quiet: true
 
 - name: Validate variable shapes
   ansible.builtin.assert:

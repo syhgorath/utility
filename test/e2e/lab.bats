@@ -133,4 +133,21 @@ v2() { cat "$BATS_FILE_TMPDIR/v2path"; }
   [ "$status" -ne 0 ]
 }
 
+@test "Proxmox VE reddedilir (sahte pveversion), --check dahil; hiçbir şey değişmez" {
+  lab sh -c 'touch /usr/bin/pveversion'
+  run "$RUN" preview -e "@$(v1)" --check --diff
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Proxmox VE tespit edildi"* ]] || false
+  run "$RUN" apply -e "@$(v1)"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Proxmox VE tespit edildi"* ]] || false
+  lab sh -c 'rm /usr/bin/pveversion; mkdir /etc/pve'
+  run "$RUN" apply -e "@$(v1)"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Proxmox VE tespit edildi"* ]] || false
+  lab sh -c 'rmdir /etc/pve'
+  run "$RUN" preview -e "@$(v1)" --check
+  [ "$status" -eq 0 ]
+}
+
 teardown_file() { "$BATS_TEST_DIRNAME/lab/down.sh" --clean >&3 || true; }

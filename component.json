@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "sshpocket_api": 1,
   "name": "Sunucu araçları: saat dilimi, locale, NTP",
-  "description": "Saat dilimini, sistem dilini (LANG) ve NTP kaynaklarını (chrony drop-in) önizleyerek, yedekleyerek ve onayla yönetir. Ubuntu 26.04; Debian 13 planlanmış.",
+  "description": "Saat dilimini, sistem dilini (LANG) ve NTP kaynaklarını (chrony drop-in) önizleyerek, yedekleyerek ve onayla yönetir. Ubuntu 26.04 ve Debian 13; Proxmox VE kapsam dışı.",
   "runner": "ansible",
   "requires": { "control": { "python": ">=3.12", "packages": ["ansible-core"] }, "target": { "python": ">=3.9" } },
   "inventory_group": "utility",
   "profiles": [
     { "id": "ubuntu-26.04", "status": "supported" },
-    { "id": "debian-13", "status": "planned" }
+    { "id": "debian-13", "status": "supported" }
   ],
   "actions": {
     "durum": {

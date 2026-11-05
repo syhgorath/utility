@@ -3,13 +3,15 @@
 [sshpocket](https://github.com/syhgorath/sshpocket) paketi: sunucunun **saat dilimini**, **sistem dilini (`LANG`)** ve **NTP kaynaklarını (chrony)** menüden, önizleyerek, yedekleyerek ve onayla yönetir.
 Düşük riskli, dar kapsamlı bir pakettir: ssh, ufw ve PAM'a dokunmaz, erişimi kesmez. Bu yüzden `linux-hardening`'deki zamanlayıcılı geri alma güvenlik ağı **yoktur**; yerine önizleme, yedek ve idempotans vardır.
 
-> **Durum: v0.1.0.** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: Ubuntu 26.04 gerçek VM'de denendi, Debian 13 VM ve sshpocket menüsü denenmedi.
+> **Durum: v0.1.0.** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: Ubuntu 26.04 ve Debian 13.7 birer gerçek VM'de denendi (ikisi de tek VM); sshpocket menüsü ve Proxmox denenmedi.
 
 ## Profiller
 | Profil | Durum | Not |
 |---|---|---|
-| `ubuntu-26.04` | supported | LAB'da (Docker konteyneri) uçtan uca denendi; **gerçek VM turu bekliyor** |
-| `debian-13` | **planned** | Playbook çalışır ve uyarı verir, ama sshpocket bu profili açmaz. Konteynerde denendi; chrony/systemd-timesyncd etkileşimi **gerçek Debian 13 VM'inde doğrulanmadı** |
+| `ubuntu-26.04` | supported | LAB'da ve gerçek VM'de (iki tur, linux-hardening'li) denendi |
+| `debian-13` | supported | **Yalnızca Debian 13.7, tek gerçek VM'de, hardening'siz, auditd ve ufw olmadan** denendi (chrony kurulumu `systemd-timesyncd`'yi kaldırdı). Başka Debian 13 kurulumları, hardening'li/auditd'li/ufw'li Debian denenmedi |
+
+**Proxmox VE bilerek reddedilir:** Proxmox VE 9 Debian 13 tabanlıdır ve OS eşlemesinden geçerdi; bu yüzden ön kontrol `/usr/bin/pveversion` ya da `/etc/pve` varsa (`--check` dahil) "Proxmox VE v0.1 kapsam dışı" diye durur. Bu koruma sahte `pveversion` ile LAB'da test edildi, **gerçek Proxmox'ta denenmedi**.
 
 Kapsam dışı (v0.1): Proxmox VE, Raspberry Pi, hostname, apt kaynakları, NTS, `makestep`, `LC_*`.
 
@@ -59,11 +61,17 @@ Bilinen etkileşimler (kaynak: Ubuntu 26.04 chrony dosyaları ve linux-hardening
 | Gerçek VM: ubuntutest (Ubuntu 26.04, linux-hardening uygulanmış; doğrudan playbook) | ✅ `durum` → `preview` (`degisen=2 plan=timezone+ntp`, auditd uyarısı görüldü) → `apply` (`changed` yazanlar yalnızca timezone+ntp) → bağımsız ssh doğrulaması → ikinci `preview` `changed=0` → `geri_yukle` (saat dilimi ve utility.sources geri geldi). Yedek dizin 0700, manifest 0600; `files/` boştu (değişen yollar sembolik bağ ve olmayan dosyalardı) |
 | Gerçek VM: ubuntutest, **ikinci tur** (`tr_TR.UTF-8` + 2 NTP kaynağı + saat dilimi) | ✅ `preview` `degisen=3 plan=timezone+locale+ntp`; `apply` `locale-gen` gerçekten çalıştı (`locales` zaten kuruluydu, kurulum yolu denenmedi); `/etc/default/locale` → `../locale.conf` bağı bozulmadı, LANG `locale.conf` içinde; `locale -a` `tr_TR.utf8`; chrony 2 utility kaynağı + Canonical NTS kaynakları; ikinci `preview` `changed=0`; `geri_yukle` `geri_yuklenen=6` (Etc/UTC, LANG=en_US.UTF-8, locale.gen satırı yorumda, utility.sources silindi). `ausearch -k time-change`: `/etc/localtime` CREATE/DELETE kaydı alındı. `preview` diff'inde `/etc/default/locale` için görünen "mode 0777→0644" sembolik bağın lstat izninden gelir, hedef zaten 0644 ve apply'da değişmedi |
 | Gerçek VM: **denenmeyenler** | `locales` paketinin kurulum yolu, 3'ten fazla NTP kaynağı, ufw giden-reddi açıkken davranış |
-| **Gerçek VM: düz Debian 13** | **denenmedi** |
+| Gerçek VM: debiantest (Debian 13.7, düz VM, doğrudan playbook; `sudo.ws` gerekmedi) | ✅ ön durum: chrony kurulu değil, `systemd-timesyncd` aktif, tırnaklı `LANG="en_US.UTF-8"` + `LANGUAGE` satırı. `durum` → `preview` (`degisen=4 plan=timezone+locale+paket+ntp`; apt diff'i chrony kurar, timesyncd'yi kaldırır) → `apply` (`sourcedir /etc/chrony/sources.d` denetimi geçti) → bağımsız doğrulama (Europe/Berlin, `tr_TR.UTF-8`, `/etc/default/locale` → `../locale.conf` bağı sağlam, chrony `^*` senkron) → ikinci `preview` `changed=0` (paket dahil) → `geri_yukle` (dosyalar döndü, `LANGUAGE` satırı korundu; chrony kurulu kaldı, timesyncd `rc`) |
+| Gerçek VM: **Debian'da denenmeyenler** | ufw giden-reddi, hardening'li Debian, auditd'li Debian (`ausearch`), sshpocket menüsü, Proxmox |
 | linux-hardening ile birlikte | kısmen: yukarıdaki VM hardening'liydi (auditd aktif, `time-change` kaydı alındı); ufw giden-reddi denenmedi |
 | sshpocket menüsünden uçtan uca | **denenmedi** (kilit PR'ından sonra) |
 
 LAB'ın sınırları: chrony.service konteynerde başlamaz (`ConditionVirtualization=!container`), bu yüzden LAB'da NTP **senkronu** denenemez; yalnızca yapılandırma, paket ve idempotans denenir. Çekirdek paylaşılır; `--privileged` yalnızca bu LAB içindir.
+
+## Sınırlar ve v0.2 için bilinenler
+- NTP kaynakları dağıtımın varsayılanlarının **yanına eklenir**; mevcut kaynakları (Ubuntu `ubuntu-ntp-pools.sources`, Debian `chrony.conf` pool satırları) silmez ve devre dışı bırakmaz. Biçim denetimi yalnızca `host`, `server host`, `pool host` kabul eder.
+- v0.2 adayları (kod yok): (a) yerel NTP için dağıtım varsayılan kaynaklarını devre dışı bırakma seçeneği, (b) `prefer`, `minpoll` gibi kaynak seçenekleri.
+- `durum`: chrony kurulu değilken `ntp_senkron=yes` görünebilir, çünkü `timedatectl` `systemd-timesyncd`'nin senkronunu da sayar (`ntp_servis=inactive` ile birlikte okuyun).
 
 ## Bilinen sorunlar
 - Ubuntu 26.04'te doğrudan `ansible-playbook --ask-become-pass` ile `Timeout (12s) waiting for privilege escalation prompt` alınır (sudo-rs): `-e ansible_become_exe=/usr/bin/sudo.ws` ekleyin. sshpocket menüsünün bunu kendi çözüp çözmediği doğrulanmadı. Ayrıntı: [docs/vm-turu.md](docs/vm-turu.md).

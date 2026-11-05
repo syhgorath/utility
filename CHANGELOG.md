@@ -12,7 +12,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 - Eylemler: `durum` (salt okunur), `preview` (`--check --diff`), `apply` (`yes-no` onay, `preview` ön koşul), `geri_yukle`.
 - Saat dilimi (`utility_timezone`), sistem dili yalnızca `LANG` (`utility_locale`), NTP kaynakları (`utility_ntp_servers`, chrony `sources.d/utility.sources` drop-in'i; `chrony.conf`'a dokunulmaz).
 - Değiştirmeden önce `/var/backups/utility/<UTC tarih>/` yedeği (dizin 0700, dosyalar 0600, `manifest.json`); yalnızca değişecek yollar. `geri_yukle` yalnızca katalogdaki dosyaları geri yazar.
-- Ubuntu 26.04: `supported`. Debian 13: `planned` (playbook çalışır ve uyarır; sshpocket açmaz).
+- Ubuntu 26.04 ve Debian 13: `supported` (Debian 13.7 tek gerçek VM'de, hardening'siz, auditd/ufw olmadan denendi).
+- Proxmox VE koruması: `/usr/bin/pveversion` ya da `/etc/pve` varsa `--check` dahil durur (Proxmox VE 9 Debian 13 tabanlı olduğundan OS eşlemesinden geçerdi). Sahte `pveversion` ile LAB'da test edildi; gerçek Proxmox'ta denenmedi.
 - Release araçları (`scripts/release.sh`, `release-publish.sh`, `check-consistency.py`) linux-hardening'den/şablondan uyarlandı; LAB e2e (`test/e2e/lab.bats`) ve yedek betiği birim testleri.
 
 ### Denendi
@@ -22,11 +23,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 - Gerçek Ubuntu 26.04 VM, ikinci tur: `tr_TR.UTF-8` ile `locale-gen` yolu, 2 NTP kaynağı, `ausearch -k time-change` kaydı (`/etc/localtime` CREATE/DELETE), ikinci `preview` `changed=0`, `geri_yukle` ✅. Geri yükleme üretilmiş locale'leri silmez (`locale -a` hâlâ `tr_TR.utf8`; beklenen).
 
+- Gerçek Debian 13.7 VM (düz, hardening'siz): durum → preview → apply (chrony kuruldu, timesyncd kaldırıldı) → bağımsız doğrulama → ikinci preview `changed=0` → geri_yukle ✅; tırnaklı `LANG` doğru okundu, `LANGUAGE` satırı korundu.
+
 ### Denenmedi
-- Gerçek Debian 13 VM; sshpocket menüsünden uçtan uca; `locales` paketinin gerçek VM'de kurulum yolu (VM'de zaten kuruluydu); 3'ten fazla NTP kaynağı; ufw giden-reddi açıkken davranış. LAB'da chrony servisi başlamadığı için LAB'da NTP **senkronu** denenmedi.
+- Gerçek Debian 13 VM'de ufw giden-reddi, hardening'li ve auditd'li Debian, Proxmox (gerçek); sshpocket menüsünden uçtan uca; `locales` paketinin gerçek VM'de kurulum yolu (VM'de zaten kuruluydu); 3'ten fazla NTP kaynağı; ufw giden-reddi açıkken davranış. LAB'da chrony servisi başlamadığı için LAB'da NTP **senkronu** denenmedi.
 
 ### Bilinen sınırlar
 - Ubuntu 26.04'te doğrudan `ansible-playbook --ask-become-pass` sudo-rs yüzünden zaman aşımına düşer: `-e ansible_become_exe=/usr/bin/sudo.ws` (sshpocket menüsünde doğrulanmadı).
-- Debian 13'te chrony kurulumu, `systemd-timesyncd`'nin yerini alması ve `conf.d`/`sources.d` varlığı gerçek VM'de doğrulanmadı.
+- NTP kaynakları eklenir, dağıtım varsayılanları silinmez/kapatılmaz; `prefer`/`minpoll` gibi seçenekler yok (v0.2 adayı).
+- `durum`: chrony kurulu değilken `ntp_senkron=yes` görünebilir (timesyncd senkronu).
 - NTP kaynakları dağıtımın varsayılanlarının yanına eklenir; varsayılanları kaldırmaz. NTS desteklenmez.
 - Zamanlayıcılı geri alma yoktur; geri dönüş yalnızca `geri_yukle` (dosyalar) ile olur, paketler/üretilmiş locale'ler/servis durumu geri alınmaz.
