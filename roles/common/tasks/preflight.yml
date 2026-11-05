@@ -11,8 +11,8 @@
         (utility_supported_os.get(utility_os_name, []) + utility_planned_os.get(utility_os_name, []))
         | select('in', [utility_os_version, utility_os_version.split('.')[0]]) | list | length > 0
     fail_msg: >-
-      utility: desteklenmeyen sistem ({{ utility_os_name }} {{ utility_os_version }}). v0.1 yalnızca Ubuntu 26.04 ve Debian 13 destekler
-      (ve Debian 13). Proxmox VE ve Raspberry Pi kapsam dışıdır.
+      utility: desteklenmeyen sistem ({{ utility_os_name }} {{ utility_os_version }}). v0.1 yalnızca Ubuntu 26.04 ve Debian 13 destekler.
+      Proxmox VE ve Raspberry Pi kapsam dışıdır.
     quiet: true
 
 # Proxmox VE 9 Debian 13 tabanlıdır ve ansible_facts'te "Debian" görünür: OS eşlemesi onu yakalayamaz. --check'te de çalışır (yalnızca okur).
