@@ -46,5 +46,7 @@ ssh KULLANICI@IP 'timedatectl; grep ^LANG= /etc/default/locale; cat /etc/chrony/
 ## Ardından: linux-hardening uygulanmış VM'de birlikte
 Aynı sıra; ek olarak `sudo ausearch -k time-change` (saat dilimi değişince kayıt beklenir) ve ufw giden trafik reddi açıkken 123/udp (ve Ubuntu varsayılan NTS kaynakları için 4460/tcp) davranışı not edilir.
 
+Durum: Ubuntu 26.04'te `time-change` kaydı (`/etc/localtime` CREATE/DELETE) iki turdan sonra **doğrulandı**; ufw giden-reddi hâlâ **denenmedi**.
+
 ## Bilinen sorunlar
 - **Ubuntu 26.04, `--ask-become-pass`:** sudo varsayılan olarak `sudo-rs`; Ansible'ın parola istemini tanıyamaz ve `Timeout (12s) waiting for privilege escalation prompt` ile düşer. Çözüm: `-e ansible_become_exe=/usr/bin/sudo.ws` (linux-hardening `docs/known-issues.md` ile aynı). sshpocket menüsünün bunu kendisi çözüp çözmediği **doğrulanmadı**.

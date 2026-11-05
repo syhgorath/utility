@@ -20,8 +20,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 - Gerçek Ubuntu 26.04 VM (ubuntutest, linux-hardening'li, doğrudan playbook): `durum` → `preview` → `apply` → bağımsız doğrulama → ikinci `preview` `changed=0` → `geri_yukle` ✅ (timezone ve NTP drop-in'i; ayrıntı README).
 
+- Gerçek Ubuntu 26.04 VM, ikinci tur: `tr_TR.UTF-8` ile `locale-gen` yolu, 2 NTP kaynağı, `ausearch -k time-change` kaydı (`/etc/localtime` CREATE/DELETE), ikinci `preview` `changed=0`, `geri_yukle` ✅. Geri yükleme üretilmiş locale'leri silmez (`locale -a` hâlâ `tr_TR.utf8`; beklenen).
+
 ### Denenmedi
-- Gerçek Debian 13 VM; sshpocket menüsünden uçtan uca; locale **değişikliği** gerçek VM'de (VM zaten `en_US.UTF-8` idi); birden çok NTP kaynağı; `ausearch` ile `time-change` kaydı; ufw giden-reddi açıkken davranış. LAB'da chrony servisi başlamadığı için LAB'da NTP **senkronu** denenmedi.
+- Gerçek Debian 13 VM; sshpocket menüsünden uçtan uca; `locales` paketinin gerçek VM'de kurulum yolu (VM'de zaten kuruluydu); 3'ten fazla NTP kaynağı; ufw giden-reddi açıkken davranış. LAB'da chrony servisi başlamadığı için LAB'da NTP **senkronu** denenmedi.
 
 ### Bilinen sınırlar
 - Ubuntu 26.04'te doğrudan `ansible-playbook --ask-become-pass` sudo-rs yüzünden zaman aşımına düşer: `-e ansible_become_exe=/usr/bin/sudo.ws` (sshpocket menüsünde doğrulanmadı).
