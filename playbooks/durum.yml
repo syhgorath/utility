@@ -1,0 +1,68 @@
+# Salt okunur durum: saat dilimi, LANG, NTP servisi/senkron/ofset/kaynak sayısı. Hiçbir şey değiştirmez, sudo gerektirmez.
+# Sonuç satırı: SSHPOCKET_RESULT utility.durum timezone=… locale=… ntp_servis=… ntp_senkron=yes|no offset_ms=… kaynak_sayisi=…
+- name: utility durum (salt okunur)
+  hosts: utility
+  gather_facts: false
+  become: false
+  tasks:
+    # /etc/localtime'dan okunur: timedatectl (timedated) önbelleği saat dilimi dosyayla değiştirildikten sonra bir süre eski değeri gösterebilir
+    - name: Read timezone
+      ansible.builtin.shell: set -o pipefail; readlink -f /etc/localtime | sed -n 's|^/usr/share/zoneinfo/||p'
+      args:
+        executable: /bin/bash
+      register: utility_d_tz
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read LANG
+      ansible.builtin.shell: set -o pipefail; grep -E '^LANG=' /etc/default/locale | tail -n1 | cut -d= -f2- | tr -d '"'
+      args:
+        executable: /bin/bash
+      register: utility_d_lang
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read chrony service state
+      ansible.builtin.command: systemctl is-active chrony
+      register: utility_d_svc
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read NTP synchronized flag
+      ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+      register: utility_d_sync
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read chrony tracking
+      ansible.builtin.command: chronyc -c tracking
+      register: utility_d_tracking
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read chrony sources
+      ansible.builtin.command: chronyc -c sources
+      register: utility_d_sources
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # chronyc -c tracking alanları: 1 ref-id, 2 ad, 3 katman, 4 ref zamanı, 5 sistem saati farkı (saniye, işaretli) ...
+    - name: Result line
+      vars:
+        utility_d_offset: >-
+          {{ ((utility_d_tracking.stdout.split(',')[4] | float * 1000) | round(1)) if utility_d_tracking.rc == 0 and utility_d_tracking.stdout.split(',') | length > 4 else 'unknown' }}
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.durum
+          timezone={{ (utility_d_tz.stdout | default('') | trim or 'unknown') | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
+          locale={{ (utility_d_lang.stdout | default('') | trim or 'unset') | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
+          ntp_servis={{ (utility_d_svc.stdout | default('') | trim or 'unknown') | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
+          ntp_senkron={{ 'yes' if utility_d_sync.stdout | default('') | trim == 'yes' else 'no' }}
+          offset_ms={{ utility_d_offset | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
+          kaynak_sayisi={{ (utility_d_sources.stdout_lines | default([]) | length) if utility_d_sources.rc == 0 else 0 }}

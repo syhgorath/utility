@@ -1,24 +1,69 @@
 {
-  "id": "ornek-bilgi",
+  "id": "utility",
   "version": "0.1.0",
   "sshpocket_api": 1,
-  "name": "Örnek paket: sunucu bilgisi",
-  "description": "Şablon paket: sunucunun çekirdek, işletim sistemi ve çalışma süresini salt okunur okur. Kendi paketinizin başlangıç noktasıdır.",
+  "name": "Sunucu araçları: saat dilimi, locale, NTP",
+  "description": "Saat dilimini, sistem dilini (LANG) ve NTP kaynaklarını (chrony drop-in) önizleyerek, yedekleyerek ve onayla yönetir. Ubuntu 26.04; Debian 13 planlanmış.",
   "runner": "ansible",
   "requires": { "control": { "python": ">=3.12", "packages": ["ansible-core"] }, "target": { "python": ">=3.9" } },
-  "inventory_group": "ornek",
-  "profiles": [ { "id": "ubuntu-26.04", "status": "supported" } ],
+  "inventory_group": "utility",
+  "profiles": [
+    { "id": "ubuntu-26.04", "status": "supported" },
+    { "id": "debian-13", "status": "planned" }
+  ],
   "actions": {
-    "bilgi": {
-      "cmd": "ansible-playbook playbooks/bilgi.yml",
+    "durum": {
+      "cmd": "ansible-playbook playbooks/durum.yml",
       "effects": [],
       "requires_sudo": false,
       "confirm": "none",
-      "warnings": ["Salt okunur: yalnızca sunucu bilgisini okur, hiçbir şeyi değiştirmez."],
-      "outputs": { "format": "keyvalue-line", "keys": ["kernel", "os", "uptime_s", "etiket"] }
+      "warnings": ["Salt okunur: saat dilimi, LANG, chrony durumu ve ofsetini okur; hiçbir şeyi değiştirmez. chrony kurulu değilse ntp_servis=inactive/unknown, ofset unknown görünür."],
+      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.durum", "keys": ["timezone", "locale", "ntp_servis", "ntp_senkron", "offset_ms", "kaynak_sayisi"] }
+    },
+    "preview": {
+      "cmd": "ansible-playbook playbooks/preview.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Önizleme yalnızca dosya farkını ve plan adlarını gösterir: timedatectl, locale-gen, paket kurulumu ve chrony yeniden başlatması --check'te çalışmaz, gösterilmez.",
+        "Boş bırakılan utility_timezone / utility_locale / utility_ntp_servers o alana hiç dokunulmayacağı anlamına gelir."
+      ],
+      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.preview", "keys": ["degisen", "plan"] }
+    },
+    "apply": {
+      "cmd": "ansible-playbook playbooks/apply.yml",
+      "effects": ["installs-package", "changes-config"],
+      "requires_sudo": true,
+      "requires": ["preview"],
+      "confirm": "yes-no",
+      "warnings": [
+        "Değişmeden önce /var/backups/utility/<tarih>/ altına yedek alır (dizin 0700, dosyalar 0600); zamanlayıcılı geri alma güvenlik ağı YOKTUR (ssh/ufw/PAM'a dokunulmaz, erişimi kesmez). Geri dönüş: geri_yukle eylemi.",
+        "NTP kaynakları, dağıtımın varsayılan kaynaklarının YERİNE değil yanına eklenir (sources.d/utility.sources); chrony.conf'a dokunulmaz. Değişince chrony yeniden başlatılır.",
+        "Yanlış NTP kaynağının en kötü sonucu saat senkronunun kaybıdır (ssh sertifikaları, TOTP, apt 'Not live until' etkilenebilir); erişim kaybı değil.",
+        "auditd açıksa saat dilimi değişimi 'time-change' kaydı üretir (beklenen). ufw giden trafiği reddediyorsa (hardening_ufw_outgoing_deny) NTP için 123/udp çıkışı gerekir.",
+        "locale-gen ve chrony kurulumu gerekirse apt ile paket kurar (locales, chrony); geri_yukle paketleri kaldırmaz."
+      ],
+      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.apply", "keys": ["degisen", "plan", "yedek"] }
+    },
+    "geri_yukle": {
+      "cmd": "ansible-playbook playbooks/geri_yukle.yml",
+      "effects": ["changes-config"],
+      "requires_sudo": true,
+      "confirm": "yes-no",
+      "warnings": [
+        "Yalnızca DOSYALARI geri yazar (/etc/localtime, /etc/timezone, /etc/default/locale, /etc/locale.gen, chrony conf.d ve sources.d); yedek yokken var olmayan dosyayı siler. utility_restore_from boşsa EN SON yedek kullanılır.",
+        "Kurulan paketleri (chrony, locales), üretilmiş locale'leri, servis durumunu ve geçmiş log zaman damgalarını geri ALMAZ. chrony drop-in'i değiştiyse chrony yeniden başlatılır.",
+        "Yedekten sonra elle yapılan değişikliklerin üzerine yazar."
+      ],
+      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.geri_yukle", "keys": ["yedek", "geri_yuklenen", "degisen"] }
     }
   },
   "vars": [
-    { "name": "ornek_etiket", "type": "string", "default": "merhaba", "description": "Sonuç satırına eklenen etiket (örnek bir değişken; kendi değişkenlerinizle değiştirin)." }
+    { "name": "utility_timezone", "type": "string", "default": "", "group": "Zaman", "description": "Saat dilimi (örn. Europe/Istanbul). Boş = saat dilimine dokunma. /usr/share/zoneinfo altında var olmalı." },
+    { "name": "utility_locale", "type": "string", "default": "", "group": "Dil", "description": "Sistem dili: yalnızca LANG (örn. en_US.UTF-8). Boş = dokunma. LC_* yönetilmez. Gerekirse locales kurulur ve locale üretilir." },
+    { "name": "utility_ntp_servers", "type": "list[string]", "default": [], "group": "NTP", "description": "NTP kaynakları (en çok 8): 'host', 'server host' ya da 'pool host'; iburst otomatik eklenir. Boş = dağıtım varsayılanı (dosya yazılmaz, chrony kurulmaz). Dağıtımın varsayılan kaynakları kalır." },
+    { "name": "utility_backup", "type": "bool", "default": true, "group": "Yedek", "description": "Değiştirmeden önce /var/backups/utility/<tarih>/ altına yedek al. false = yedek alınmaz ve geri_yukle yeni değişikliği geri alamaz." },
+    { "name": "utility_restore_from", "type": "string", "default": "", "group": "Yedek", "description": "geri_yukle için yedek adı (örn. 20261105T101500Z). Boş = en son yedek." }
   ]
 }

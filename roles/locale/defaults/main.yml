@@ -1,0 +1,2 @@
+# boş = locale'e dokunma; yalnızca LANG (LC_* yönetilmez)
+utility_locale: ""

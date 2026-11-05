@@ -1,0 +1,5 @@
+- name: Show the plan
+  ansible.builtin.debug:
+    msg: >-
+      utility: {{ 'planlanan' if ansible_check_mode else 'uygulanan' }} değişiklik:
+      {{ utility_plan | join(', ') if utility_plan | length > 0 else 'yok (zaten istenen durumda)' }}

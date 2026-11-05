@@ -1,0 +1,55 @@
+# NTP PLANI: chrony drop-in /etc/chrony/sources.d/utility.sources. utility_ntp_servers boşsa hiçbir şey planlanmaz (dağıtım varsayılanı kalır).
+# chrony.conf'a DOKUNULMAZ; yalnızca drop-in.
+- name: Plan NTP
+  when: utility_ntp_servers | length > 0
+  block:
+    - name: Check whether chrony is installed
+      ansible.builtin.command: dpkg-query -W -f '${db:Status-Status}' chrony
+      register: utility_ntp_pkg
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read the current utility.sources
+      ansible.builtin.slurp:
+        src: /etc/chrony/sources.d/utility.sources
+      register: utility_ntp_current
+      failed_when: false
+
+    - name: Check whether the chrony service is running and enabled
+      ansible.builtin.command: "systemctl {{ item }} chrony"
+      loop: [is-active, is-enabled]
+      register: utility_ntp_svc
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # chrony.service konteynerde başlamaz (ConditionVirtualization=!container): LAB'da "çalışıyor mu" bakılmaz, yalnızca "etkin mi"
+    - name: Detect container
+      ansible.builtin.command: systemd-detect-virt --container
+      register: utility_ntp_container
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Render the wanted sources
+      ansible.builtin.set_fact:
+        utility_ntp_content: |
+          # utility paketi tarafından yönetilir (elle düzenlemeyin; utility_ntp_servers).
+          {% for s in utility_ntp_servers %}
+          {{ s if s.split(' ')[0] in ['server', 'pool'] else 'server ' ~ s }} iburst
+          {% endfor %}
+
+    - name: Decide what changes
+      ansible.builtin.set_fact:
+        utility_ntp_need_pkg: "{{ utility_ntp_pkg.stdout != 'installed' }}"
+        utility_ntp_need_file: "{{ utility_ntp_current.content is not defined or (utility_ntp_current.content | b64decode) != utility_ntp_content }}"
+        utility_ntp_need_service: >-
+          {{ utility_ntp_svc.results[1].stdout != 'enabled' or
+             (utility_ntp_svc.results[0].stdout != 'active' and utility_ntp_container.rc != 0) }}
+
+    - name: Record the NTP plan
+      ansible.builtin.set_fact:
+        utility_plan: "{{ utility_plan + (['paket'] if utility_ntp_need_pkg | bool else []) + (['ntp'] if (utility_ntp_need_file | bool or utility_ntp_need_service | bool) else []) }}"
+        utility_backup_paths: "{{ utility_backup_paths + (['/etc/chrony/sources.d/utility.sources'] if utility_ntp_need_file | bool else []) }}"
+      when: utility_ntp_need_pkg | bool or utility_ntp_need_file | bool or utility_ntp_need_service | bool

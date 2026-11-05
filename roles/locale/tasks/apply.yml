@@ -1,0 +1,39 @@
+- name: Apply locale
+  when: "'locale' in utility_plan"
+  block:
+    - name: Install locales
+      ansible.builtin.apt:
+        name: locales
+        state: present
+      when: utility_locale_need_pkg | bool
+
+    - name: Enable the locale in /etc/locale.gen
+      ansible.builtin.lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#?\s*{{ utility_locale_gen_line | regex_escape }}\s*$'
+        line: "{{ utility_locale_gen_line }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0644"
+      register: utility_locale_gen_edit
+      # locales yeni kuruluyorsa dosya apt ile gelir; önizlemede (paket kurulmadı) dosya yok olabilir
+      when: not (utility_locale_builtin | bool) and (utility_locale_need_gen_line | bool or utility_locale_need_gen | bool)
+
+    - name: Generate the locale
+      ansible.builtin.command: locale-gen
+      changed_when: true
+      when: >-
+        not ansible_check_mode and not (utility_locale_builtin | bool) and
+        (utility_locale_need_gen | bool or (utility_locale_gen_edit is changed))
+
+    - name: Set LANG in /etc/default/locale
+      ansible.builtin.lineinfile:
+        path: /etc/default/locale
+        regexp: '^LANG='
+        line: "LANG={{ utility_locale }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0644"
+      when: utility_locale_need_default | bool

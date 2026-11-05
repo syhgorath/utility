@@ -1,0 +1,2 @@
+# boş = dağıtım varsayılanı; dosya yazılmaz, chrony kurulmaz
+utility_ntp_servers: []

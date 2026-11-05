@@ -8,16 +8,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - name: Sözleşme uyum denetimi (vendored sshpocket doğrulayıcısı; uyarılar hata sayılmaz)
-        run: python3 -I tools/validate/component_validate.py .
-      - name: Örnek paketler (ornekler/*) sözleşmeye uyuyor mu (--strict) ve betikler temiz mi
-        run: |
-          set -eu
-          for d in ornekler/*/; do
-            python3 -I tools/validate/component_validate.py "$d" --strict
-            for f in "$d"scripts/*.sh; do bash -n "$f"; done
-          done
-          shellcheck ornekler/*/scripts/*.sh
+      - name: Sözleşme uyum denetimi (vendored sshpocket doğrulayıcısı; --strict: uyarı da hata)
+        run: python3 -I tools/validate/component_validate.py . --strict --unsigned
+      - name: Tutarlılık (VERSION, CHANGELOG, README, profiller, değişkenler, sonuç satırları)
+        run: python3 -I scripts/check-consistency.py
       - name: Vendored doğrulayıcı özetleri VENDORED.md ile aynı mı (sessiz sapma yok)
         run: |
           set -eu
@@ -26,9 +20,21 @@ jobs:
             have=$(sha256sum "tools/validate/$f" | cut -d' ' -f1)
             [ "$want" = "$have" ] || { echo "SAPMA: $f (VENDORED.md'deki özet ile eşleşmiyor)"; exit 1; }
           done
+      - name: Betikler (bash -n + shellcheck)
+        run: |
+          set -eu
+          for f in scripts/*.sh test/*.sh test/e2e/lab/*.sh; do bash -n "$f"; done
+          shellcheck scripts/*.sh test/e2e/lab/*.sh
       - name: Playbook sözdizimi (ansible-core, hash'li kurulum)
         run: |
           set -eu
           python3 -m venv .venv
           .venv/bin/pip install --quiet --require-hashes --only-binary :all: -r requirements.txt
-          .venv/bin/ansible-playbook --syntax-check -i 'localhost,' playbooks/bilgi.yml
+          for p in durum preview apply geri_yukle; do .venv/bin/ansible-playbook --syntax-check -i test/inventory-local.yml "playbooks/$p.yml"; done
+      - name: Hızlı testler (yedek betiği birim testleri, release betikleri)
+        run: |
+          set -eu
+          sudo apt-get install -y --no-install-recommends bats >/dev/null
+          bats test/backup.bats
+          bash test/test_release_script.sh
+          bash test/test_release_publish.sh

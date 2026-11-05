@@ -1,0 +1,42 @@
+- name: Validate restore name
+  ansible.builtin.assert:
+    that: (utility_restore_from | default('')) == '' or utility_restore_from is match('^[0-9]{8}T[0-9]{6}Z(-[0-9]{1,3})?$')
+    fail_msg: "utility: utility_restore_from yedek adı olmalı (örn. 20261105T101500Z) ya da boş"
+    quiet: true
+
+- name: Restore from backup
+  ansible.builtin.script:
+    cmd: >-
+      utility_backup.py {{ {'mode': 'restore', 'dir': '/var/backups/utility', 'from': utility_restore_from | default(''),
+      'dry_run': ansible_check_mode} | to_json | quote }}
+    executable: python3
+  register: utility_restore_raw
+  changed_when: (utility_restore_raw.stdout | from_json).changed | default(0) | int > 0
+  failed_when: utility_restore_raw.rc != 0 or (utility_restore_raw.stdout | from_json).error is defined
+  check_mode: false
+
+- name: Parse the restore result
+  ansible.builtin.set_fact:
+    utility_restore: "{{ utility_restore_raw.stdout | from_json }}"
+
+- name: Check whether chrony is installed
+  ansible.builtin.command: dpkg-query -W -f '${db:Status-Status}' chrony
+  register: utility_restore_chrony
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Restart chrony after restoring drop-ins
+  ansible.builtin.systemd:
+    name: chrony
+    state: restarted
+  when: >-
+    not ansible_check_mode and utility_restore_chrony.stdout == 'installed' and
+    (utility_restore.changed_paths | select('match', '^/etc/chrony/') | list | length > 0)
+
+- name: Note locale and package scope
+  ansible.builtin.debug:
+    msg: >-
+      UYARI (utility): geri yükleme yalnızca dosyaları döndürür. Kurulan paketler (chrony, locales), üretilmiş locale'ler ve servis durumu
+      geri alınmaz; /etc/locale.gen geri yüklendi ise locale'leri yeniden üretmek için locale-gen çalıştırın.
+
