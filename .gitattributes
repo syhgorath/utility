@@ -1,0 +1,7 @@
+# Yayın paketine (git archive) GİRMEYENLER: geliştirme dosyaları. scripts/release.sh bunların pakette olmadığını denetler.
+.github/ export-ignore
+tools/ export-ignore
+scripts/ export-ignore
+ornekler/ export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore

@@ -1,0 +1,24 @@
+{
+  "id": "ornek-bilgi",
+  "version": "0.1.0",
+  "sshpocket_api": 1,
+  "name": "Örnek paket: sunucu bilgisi",
+  "description": "Şablon paket: sunucunun çekirdek, işletim sistemi ve çalışma süresini salt okunur okur. Kendi paketinizin başlangıç noktasıdır.",
+  "runner": "ansible",
+  "requires": { "control": { "python": ">=3.12", "packages": ["ansible-core"] }, "target": { "python": ">=3.9" } },
+  "inventory_group": "ornek",
+  "profiles": [ { "id": "ubuntu-26.04", "status": "supported" } ],
+  "actions": {
+    "bilgi": {
+      "cmd": "ansible-playbook playbooks/bilgi.yml",
+      "effects": [],
+      "requires_sudo": false,
+      "confirm": "none",
+      "warnings": ["Salt okunur: yalnızca sunucu bilgisini okur, hiçbir şeyi değiştirmez."],
+      "outputs": { "format": "keyvalue-line", "keys": ["kernel", "os", "uptime_s", "etiket"] }
+    }
+  },
+  "vars": [
+    { "name": "ornek_etiket", "type": "string", "default": "merhaba", "description": "Sonuç satırına eklenen etiket (örnek bir değişken; kendi değişkenlerinizle değiştirin)." }
+  ]
+}
