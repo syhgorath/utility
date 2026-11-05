@@ -39,6 +39,7 @@ Parola/anahtar değişkeni yoktur.
 
 ## Yedek ve geri yükleme (kapsamı dürüstçe)
 - `apply`, **değişecek** yolları değiştirmeden önce `/var/backups/utility/<UTC tarih>/` altına alır: dizin `0700`, dosyalar ve `manifest.json` `0600`. Değişiklik yoksa yedek alınmaz.
+- `geri_yukle` **üretilmiş locale'leri silmez**: gerçek VM'de geri yüklemeden sonra `locale -a` hâlâ `tr_TR.utf8` gösterdi (beklenen).
 - `geri_yukle` **yalnızca dosyaları** geri yazar: `/etc/localtime`, `/etc/timezone`, `/etc/default/locale`, `/etc/locale.conf`, `/etc/locale.gen`, chrony `conf.d`/`sources.d` altındaki dosyalar. Yedek alındığında var olmayan dosya silinir. Başka bir yola yazmaz (kurcalanmış manifest dahil), bozuk yedeği özet kontrolüyle reddeder.
 - **Geri almaz:** kurulan paketleri (`chrony`, `locales`), `locale-gen` ile üretilmiş locale'leri, çalışan servis durumunu, geçmiş log zaman damgalarını. Yedekten sonra elle yapılan değişikliklerin üzerine yazar.
 - Zamanlayıcılı rollback yoktur. Yanlış NTP kaynağının en kötü sonucu saat senkronunun kaybıdır (ssh sertifikaları, TOTP, apt "Not live until" etkilenebilir); erişim kaybı değil.
@@ -56,9 +57,10 @@ Bilinen etkileşimler (kaynak: Ubuntu 26.04 chrony dosyaları ve linux-hardening
 | Aynı LAB, `LAB_BASE=debian:trixie` konteyneri | 13/13 geçti; bu **Debian 13 VM doğrulaması değildir** (konteynerde `systemd-timesyncd` yok, chrony servisi başlamaz) |
 | `bats test/backup.bats` (yedek betiği birim testleri), `test/run-all.sh` | yeşil |
 | Gerçek VM: ubuntutest (Ubuntu 26.04, linux-hardening uygulanmış; doğrudan playbook) | ✅ `durum` → `preview` (`degisen=2 plan=timezone+ntp`, auditd uyarısı görüldü) → `apply` (`changed` yazanlar yalnızca timezone+ntp) → bağımsız ssh doğrulaması → ikinci `preview` `changed=0` → `geri_yukle` (saat dilimi ve utility.sources geri geldi). Yedek dizin 0700, manifest 0600; `files/` boştu (değişen yollar sembolik bağ ve olmayan dosyalardı) |
-| Gerçek VM: **denenmeyenler** | locale **değişikliği** (VM zaten `en_US.UTF-8` idi: `locales`/`locale-gen` yolu VM'de denenmedi), birden çok `utility_ntp_servers`, `ausearch` ile `time-change` kaydı (uyarı görüldü, kayıt bakılmadı), ufw giden-reddi açıkken davranış |
+| Gerçek VM: ubuntutest, **ikinci tur** (`tr_TR.UTF-8` + 2 NTP kaynağı + saat dilimi) | ✅ `preview` `degisen=3 plan=timezone+locale+ntp`; `apply` `locale-gen` gerçekten çalıştı (`locales` zaten kuruluydu, kurulum yolu denenmedi); `/etc/default/locale` → `../locale.conf` bağı bozulmadı, LANG `locale.conf` içinde; `locale -a` `tr_TR.utf8`; chrony 2 utility kaynağı + Canonical NTS kaynakları; ikinci `preview` `changed=0`; `geri_yukle` `geri_yuklenen=6` (Etc/UTC, LANG=en_US.UTF-8, locale.gen satırı yorumda, utility.sources silindi). `ausearch -k time-change`: `/etc/localtime` CREATE/DELETE kaydı alındı. `preview` diff'inde `/etc/default/locale` için görünen "mode 0777→0644" sembolik bağın lstat izninden gelir, hedef zaten 0644 ve apply'da değişmedi |
+| Gerçek VM: **denenmeyenler** | `locales` paketinin kurulum yolu, 3'ten fazla NTP kaynağı, ufw giden-reddi açıkken davranış |
 | **Gerçek VM: düz Debian 13** | **denenmedi** |
-| linux-hardening ile birlikte | kısmen: yukarıdaki VM hardening'liydi (auditd aktif); ufw giden-reddi ve `ausearch` denenmedi |
+| linux-hardening ile birlikte | kısmen: yukarıdaki VM hardening'liydi (auditd aktif, `time-change` kaydı alındı); ufw giden-reddi denenmedi |
 | sshpocket menüsünden uçtan uca | **denenmedi** (kilit PR'ından sonra) |
 
 LAB'ın sınırları: chrony.service konteynerde başlamaz (`ConditionVirtualization=!container`), bu yüzden LAB'da NTP **senkronu** denenemez; yalnızca yapılandırma, paket ve idempotans denenir. Çekirdek paylaşılır; `--privileged` yalnızca bu LAB içindir.
