@@ -6,7 +6,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [0.1.0] - 2026-11-05
 
-İlk sürüm. **Gerçek VM turu yapılmadan yayınlanmamalıdır** (aşağıdaki "Denenmedi").
+İlk sürüm.
 
 ### Eklendi
 - Eylemler: `durum` (salt okunur), `preview` (`--check --diff`), `apply` (`yes-no` onay, `preview` ön koşul), `geri_yukle`.
@@ -18,10 +18,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 ### Denendi
 - `--strict` doğrulayıcı temiz; LAB (systemd'li Ubuntu 26.04 konteyneri) e2e 13/13, ikinci `apply` `changed=0`; aynı LAB Debian 13 konteyneri (`debian:trixie`) ile de geçti (VM değildir).
 
+- Gerçek Ubuntu 26.04 VM (ubuntutest, linux-hardening'li, doğrudan playbook): `durum` → `preview` → `apply` → bağımsız doğrulama → ikinci `preview` `changed=0` → `geri_yukle` ✅ (timezone ve NTP drop-in'i; ayrıntı README).
+
 ### Denenmedi
-- Gerçek Ubuntu 26.04 VM (ubuntutest), gerçek Debian 13 VM, linux-hardening uygulanmış sunucuda birlikte çalışma, sshpocket menüsünden uçtan uca. LAB'da chrony servisi başlamadığı için NTP **senkronu** denenmedi.
+- Gerçek Debian 13 VM; sshpocket menüsünden uçtan uca; locale **değişikliği** gerçek VM'de (VM zaten `en_US.UTF-8` idi); birden çok NTP kaynağı; `ausearch` ile `time-change` kaydı; ufw giden-reddi açıkken davranış. LAB'da chrony servisi başlamadığı için LAB'da NTP **senkronu** denenmedi.
 
 ### Bilinen sınırlar
+- Ubuntu 26.04'te doğrudan `ansible-playbook --ask-become-pass` sudo-rs yüzünden zaman aşımına düşer: `-e ansible_become_exe=/usr/bin/sudo.ws` (sshpocket menüsünde doğrulanmadı).
 - Debian 13'te chrony kurulumu, `systemd-timesyncd`'nin yerini alması ve `conf.d`/`sources.d` varlığı gerçek VM'de doğrulanmadı.
 - NTP kaynakları dağıtımın varsayılanlarının yanına eklenir; varsayılanları kaldırmaz. NTS desteklenmez.
 - Zamanlayıcılı geri alma yoktur; geri dönüş yalnızca `geri_yukle` (dosyalar) ile olur, paketler/üretilmiş locale'ler/servis durumu geri alınmaz.
