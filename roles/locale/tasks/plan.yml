@@ -1,0 +1,73 @@
+# Locale PLANI (yalnızca LANG). utility_locale boşsa hiçbir şey planlanmaz.
+- name: Plan locale
+  when: utility_locale | length > 0
+  block:
+    - name: Read /etc/default/locale
+      ansible.builtin.slurp:
+        src: /etc/default/locale
+      register: utility_locale_default
+      failed_when: false
+
+    # Ubuntu 26.04'te /etc/default/locale, ../locale.conf'a SEMBOLİK BAĞdır; yazma bağı izler. Yedek gerçek dosyayı da almalı.
+    - name: Resolve /etc/default/locale
+      ansible.builtin.command: readlink -f /etc/default/locale
+      register: utility_locale_real
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Fail on an unexpected /etc/default/locale link
+      ansible.builtin.assert:
+        that: utility_locale_real.stdout in ['/etc/default/locale', '/etc/locale.conf']
+        fail_msg: "utility: /etc/default/locale beklenmeyen bir yola bağlı ({{ utility_locale_real.stdout }}); yedeklenemeyeceği için dokunulmadı"
+        quiet: true
+
+    - name: Read /etc/locale.gen
+      ansible.builtin.slurp:
+        src: /etc/locale.gen
+      register: utility_locale_gen_file
+      failed_when: false
+
+    - name: Read generated locales
+      ansible.builtin.command: locale -a
+      register: utility_locale_list
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Check whether the locales package is installed
+      ansible.builtin.command: dpkg-query -W -f '${db:Status-Status}' locales
+      register: utility_locales_pkg
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Derive locale facts
+      ansible.builtin.set_fact:
+        # C/POSIX/C.UTF-8 libc ile gelir: locales paketi ve locale-gen gerekmez
+        utility_locale_builtin: "{{ utility_locale in ['C', 'POSIX', 'C.UTF-8'] }}"
+        utility_locale_gen_line: "{{ (utility_locale ~ ' ' ~ utility_locale.split('.')[1]) if '.' in utility_locale else '' }}"
+        # locale -a 'en_US.utf8' yazar: charset küçük harf ve tiresiz
+        utility_locale_norm: "{{ (utility_locale.split('.')[0] ~ '.' ~ (utility_locale.split('.')[1] | lower | replace('-', ''))) if '.' in utility_locale else utility_locale }}"
+
+    - name: Decide what changes
+      ansible.builtin.set_fact:
+        utility_locale_need_pkg: "{{ not (utility_locale_builtin | bool) and utility_locales_pkg.stdout != 'installed' }}"
+        utility_locale_need_default: >-
+          {{ utility_locale_default.content is not defined or
+             (utility_locale_default.content | b64decode | regex_findall('(?m)^LANG=(.*)$') | last | default('') | trim('"')) != utility_locale }}
+        utility_locale_need_gen_line: >-
+          {{ not (utility_locale_builtin | bool) and utility_locale_gen_file.content is defined and
+             (utility_locale_gen_file.content | b64decode | regex_search('(?m)^' ~ (utility_locale_gen_line | regex_escape) ~ '\s*$')) is none }}
+        utility_locale_need_gen: >-
+          {{ not (utility_locale_builtin | bool) and (utility_locale_norm | lower) not in (utility_locale_list.stdout_lines | map('lower') | list) }}
+
+    - name: Record the locale plan
+      ansible.builtin.set_fact:
+        utility_plan: "{{ utility_plan + ['locale'] }}"
+        utility_backup_paths: >-
+          {{ utility_backup_paths + (['/etc/default/locale'] + ([utility_locale_real.stdout] if utility_locale_real.stdout != '/etc/default/locale' else []) if utility_locale_need_default | bool else [])
+             + (['/etc/locale.gen'] if (utility_locale_need_gen_line | bool or utility_locale_need_gen | bool) else []) }}
+      when: >-
+        utility_locale_need_pkg | bool or utility_locale_need_default | bool or
+        utility_locale_need_gen_line | bool or utility_locale_need_gen | bool

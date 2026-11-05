@@ -1,0 +1,29 @@
+# Bilinen etkileşim uyarıları (linux-hardening ile). Yalnızca bilgi; hiçbir şey değiştirmez.
+- name: Check whether auditd is active
+  ansible.builtin.command: systemctl is-active auditd
+  register: utility_auditd
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: "'timezone' in utility_plan"
+
+- name: Warn about auditd time-change
+  ansible.builtin.debug:
+    msg: >-
+      UYARI (utility): auditd çalışıyor; /etc/localtime izlendiği için saat dilimi değişimi 'time-change' kaydı üretir (beklenen).
+  when: "'timezone' in utility_plan and utility_auditd.stdout | default('') == 'active'"
+
+- name: Read ufw policy
+  ansible.builtin.command: ufw status verbose
+  register: utility_ufw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (utility_ntp_servers | default([])) | length > 0
+
+- name: Warn about ufw outgoing deny
+  ansible.builtin.debug:
+    msg: >-
+      UYARI (utility): ufw giden trafiği varsayılan olarak reddediyor (hardening_ufw_outgoing_deny). NTP kaynakları yalnızca 123/udp çıkışı
+      izinliyse çalışır; yoksa kaynaklara ulaşılamaz ve saat senkronu kaybolur. NTS bu sürümde yok.
+  when: (utility_ntp_servers | default([])) | length > 0 and 'deny (outgoing)' in utility_ufw.stdout | default('')

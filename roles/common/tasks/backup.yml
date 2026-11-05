@@ -1,0 +1,15 @@
+# Değişmeden ÖNCE yedek: yalnızca gerçek koşuda, yedek açıksa ve değişecek yol varsa. Katalog dışı yol betik tarafından reddedilir.
+- name: Back up files that are about to change
+  ansible.builtin.script:
+    cmd: >-
+      utility_backup.py {{ {'mode': 'backup', 'dir': utility_backup_root, 'paths': utility_backup_paths | unique | sort} | to_json | quote }}
+    executable: python3
+  register: utility_backup_raw
+  changed_when: false
+  failed_when: (utility_backup_raw.stdout | default('{}') | from_json).error is defined or utility_backup_raw.rc != 0
+  when: utility_backup | bool and utility_backup_paths | length > 0 and not ansible_check_mode
+
+- name: Remember the backup location
+  ansible.builtin.set_fact:
+    utility_backup_dir: "{{ (utility_backup_raw.stdout | from_json).dir }}"
+  when: utility_backup_raw is not skipped

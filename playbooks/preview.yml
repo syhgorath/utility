@@ -1,0 +1,38 @@
+# Önizleme: ansible-playbook playbooks/preview.yml --check --diff   (apply ile AYNI plan ve görevler; --check olmadan çalıştırılırsa DEĞİŞTİRİR, bu yüzden cmd --check'i içerir)
+# Sonuç satırı: SSHPOCKET_RESULT utility.preview degisen=<N> plan=<ad+ad|yok>
+# Göstermedikleri: timedatectl/locale-gen/chrony yeniden başlatması/paket kurulumu --check'te çalışmaz; yalnızca dosya farkı ve plan adları görünür.
+- name: utility önizleme (saat dilimi, locale, NTP)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min]
+  become: true
+  tasks:
+    - name: Preflight
+      ansible.builtin.include_role: {name: common, tasks_from: preflight}
+    - name: Plan timezone
+      ansible.builtin.include_role: {name: timezone, tasks_from: plan}
+    - name: Plan locale
+      ansible.builtin.include_role: {name: locale, tasks_from: plan}
+    - name: Plan NTP
+      ansible.builtin.include_role: {name: ntp, tasks_from: plan}
+    - name: Interaction warnings
+      ansible.builtin.include_role: {name: common, tasks_from: warnings}
+    # apply ile AYNI görevler --check'te çalışır: dosya farkı (--diff) görünür, hiçbir şey yazılmaz
+    - name: Apply timezone (check)
+      ansible.builtin.include_role: {name: timezone, tasks_from: apply}
+    - name: Apply locale (check)
+      ansible.builtin.include_role: {name: locale, tasks_from: apply}
+    - name: Apply NTP (check)
+      ansible.builtin.include_role: {name: ntp, tasks_from: apply}
+    - name: Show the plan
+      ansible.builtin.include_role: {name: common, tasks_from: result}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: "SSHPOCKET_RESULT utility.preview degisen={{ utility_plan | length }} plan={{ (utility_plan | join('+')) or 'yok' }}"
+  handlers:
+    - name: Restart chrony
+      ansible.builtin.systemd:
+        name: chrony
+        state: restarted
+      # chrony henüz kurulu değilse (paket --check'te kurulmaz) servis birimi yok
+      when: not (utility_ntp_need_pkg | default(false) | bool)

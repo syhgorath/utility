@@ -1,0 +1,42 @@
+# Saat dilimi PLANI: salt okunur karşılaştırma (--check'e güvenmeden). utility_timezone boşsa hiçbir şey planlanmaz.
+- name: Plan timezone
+  when: utility_timezone | length > 0
+  block:
+    - name: Check the zoneinfo file exists
+      ansible.builtin.stat:
+        path: "/usr/share/zoneinfo/{{ utility_timezone }}"
+      register: utility_tz_zoneinfo
+
+    - name: Fail on unknown timezone
+      ansible.builtin.assert:
+        that: utility_tz_zoneinfo.stat.exists and utility_tz_zoneinfo.stat.isreg
+        fail_msg: "utility: bilinmeyen saat dilimi '{{ utility_timezone }}' (/usr/share/zoneinfo altında yok; tzdata kurulu mu?)"
+        quiet: true
+
+    # Gerçek dosyaya çözülmüş yollar karşılaştırılır: timedatectl göreli bağ yazar, takma adlar (Europe/Istanbul -> Asia/Istanbul) aynı dosyaya çıkar.
+    - name: Resolve current and wanted timezone files
+      ansible.builtin.command: "readlink -f {{ item }}"
+      loop:
+        - /etc/localtime
+        - "/usr/share/zoneinfo/{{ utility_timezone }}"
+      register: utility_tz_resolved
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read /etc/timezone
+      ansible.builtin.slurp:
+        src: /etc/timezone
+      register: utility_tz_file
+      failed_when: false
+
+    - name: Decide whether the timezone changes
+      ansible.builtin.set_fact:
+        utility_tz_link_differs: "{{ utility_tz_resolved.results[0].stdout != utility_tz_resolved.results[1].stdout }}"
+        utility_tz_file_differs: "{{ utility_tz_file.content is not defined or (utility_tz_file.content | b64decode | trim) != utility_timezone }}"
+
+    - name: Record the timezone plan
+      ansible.builtin.set_fact:
+        utility_plan: "{{ utility_plan + ['timezone'] }}"
+        utility_backup_paths: "{{ utility_backup_paths + ['/etc/localtime', '/etc/timezone'] }}"
+      when: utility_tz_link_differs | bool or utility_tz_file_differs | bool

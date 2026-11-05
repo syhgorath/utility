@@ -1,0 +1,18 @@
+# Yedekten geri yükler (/var/backups/utility/<tarih>/). utility_restore_from boşsa EN SON yedek. --check: yazmadan ne değişeceğini sayar.
+# Sonuç satırı: SSHPOCKET_RESULT utility.geri_yukle yedek=<ad> geri_yuklenen=<N> degisen=<N>
+# Kapsam: yalnızca katalogdaki dosyaları (localtime, timezone, default/locale, locale.gen, chrony conf.d/sources.d) geri yazar.
+# Çalışan servis durumunu, kurulu paketleri, üretilmiş locale'leri ve log zaman damgalarını geri ALMAZ.
+- name: utility geri yükle
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min]
+  become: true
+  tasks:
+    - name: Restore from backup
+      ansible.builtin.include_role: {name: common, tasks_from: restore}
+
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.geri_yukle yedek={{ utility_restore.from | regex_replace('[^A-Za-z0-9_.:+-]', '_') }}
+          geri_yuklenen={{ utility_restore.restored }} degisen={{ utility_restore.changed }}

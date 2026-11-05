@@ -1,0 +1,39 @@
+# Uygular: önce plan (salt okunur), sonra YEDEK (yalnızca değişecek yollar), sonra değişiklik. İkinci koşuda plan boş olur: changed=0.
+# Sonuç satırı: SSHPOCKET_RESULT utility.apply degisen=<N> plan=<ad+ad|yok> yedek=evet|hayir
+# Sahiplik: /etc/chrony/{conf.d,sources.d}, /etc/localtime, locale. Chrony'yi değişince yeniden başlatan tek taraf bu paket. chrony.conf'a dokunulmaz.
+- name: utility uygula (saat dilimi, locale, NTP)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min]
+  become: true
+  tasks:
+    - name: Preflight
+      ansible.builtin.include_role: {name: common, tasks_from: preflight}
+    - name: Plan timezone
+      ansible.builtin.include_role: {name: timezone, tasks_from: plan}
+    - name: Plan locale
+      ansible.builtin.include_role: {name: locale, tasks_from: plan}
+    - name: Plan NTP
+      ansible.builtin.include_role: {name: ntp, tasks_from: plan}
+    - name: Interaction warnings
+      ansible.builtin.include_role: {name: common, tasks_from: warnings}
+    - name: Backup
+      ansible.builtin.include_role: {name: common, tasks_from: backup}
+    - name: Apply timezone
+      ansible.builtin.include_role: {name: timezone, tasks_from: apply}
+    - name: Apply locale
+      ansible.builtin.include_role: {name: locale, tasks_from: apply}
+    - name: Apply NTP
+      ansible.builtin.include_role: {name: ntp, tasks_from: apply}
+    - name: Show the plan
+      ansible.builtin.include_role: {name: common, tasks_from: result}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.apply degisen={{ utility_plan | length }} plan={{ (utility_plan | join('+')) or 'yok' }}
+          yedek={{ 'evet' if utility_backup_dir is defined else 'hayir' }}
+  handlers:
+    - name: Restart chrony
+      ansible.builtin.systemd:
+        name: chrony
+        state: restarted

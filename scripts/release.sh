@@ -18,8 +18,8 @@ die() { echo "HATA: $*" >&2; exit 1; }
 
 command -v python3 >/dev/null || die "python3 yok"
 command -v ssh-keygen >/dev/null || die "ssh-keygen yok"
-ID=$(python3 -I -c 'import json; print(json.load(open("component.json"))["id"])')
-JVER=$(python3 -I -c 'import json; print(json.load(open("component.json"))["version"])')
+ID=$(python3 -I -c 'import json; print(json.load(open("component.json"))["id"])' 2>/dev/null) || die "component.json okunamadı ya da id yok"
+JVER=$(python3 -I -c 'import json; print(json.load(open("component.json"))["version"])' 2>/dev/null) || die "component.json okunamadı ya da version yok"
 VERSION=$(tr -d '[:space:]' < VERSION)
 [[ "$ID" =~ ^[a-z][a-z0-9-]*$ ]] || die "component.json id geçersiz: '$ID'"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "VERSION geçersiz: '$VERSION'"
@@ -41,9 +41,12 @@ roots=$(tar -tzf "$ARCHIVE" | cut -d/ -f1 | sort -u)
 [ "$roots" = "$ID-$VERSION" ] || die "pakette beklenmeyen kök dizin(ler): $roots"
 inner=$(tar -xzOf "$ARCHIVE" "$ID-$VERSION/VERSION" | tr -d '[:space:]')
 [ "$inner" = "$VERSION" ] || die "paket içindeki VERSION ($inner) etiketle ($VERSION) aynı değil"
-if tar -tzf "$ARCHIVE" | grep -qE "^$ID-$VERSION/(\.github/|tools/|scripts/|ornekler/|dist/|\.gitattributes)"; then
+if tar -tzf "$ARCHIVE" | grep -qE "^$ID-$VERSION/(\.github/|tools/|scripts/|test/|ornekler/|dist/|\.gitattributes)"; then
     die "pakette geliştirme dosyaları var (.gitattributes export-ignore kontrol edin)"
 fi
+
+# Tutarlılık (VERSION, CHANGELOG, profiller, değişkenler, sonuç satırları)
+python3 -I scripts/check-consistency.py >/dev/null || die "scripts/check-consistency.py başarısız; bulguyu görmek için: python3 -I scripts/check-consistency.py"
 
 # Sözleşme uyum denetimi (arşiv üzerinde; ❌ varsa imzalanmaz)
 python3 -I tools/validate/component_validate.py "$ARCHIVE" --unsigned || die "sözleşme uyum denetimi başarısız (yukarıdaki ❌ satırlarına bakın)"
@@ -58,4 +61,6 @@ ssh-keygen -Y verify -f "$SIGNERS" -I "$SIGNER_ID" -n "$NS" -s "$ARCHIVE.sig" < 
     || die "üretilen imza DOĞRULANAMADI (yanlış anahtar/principal/ad alanı?)"
 
 echo "✅ $ARCHIVE ve $ARCHIVE.sig hazır"
+echo "components.lock imzalayıcı satırı (kilit PR'ında linux-hardening ile aynı olmalı):"
+echo "  $SIGNER_ID namespaces=\"$NS\" $PUB"
 echo "   Sonraki adım: dosyaları GitHub'da $TAG Release'ine yükleyin, sonra sshpocket'te scripts/lock-component.sh ile kilide yazın."

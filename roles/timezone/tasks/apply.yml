@@ -1,0 +1,21 @@
+# Saat dilimini uygular (dosya işlemleri: --check'te fark gösterir). timedatectl yerine doğrudan /etc/localtime bağı ve /etc/timezone:
+# timedatectl set-timezone aynı iki şeyi yapar ama --check'te çalışmaz, önizlenemez.
+- name: Apply timezone
+  when: "'timezone' in utility_plan"
+  block:
+    - name: Link /etc/localtime
+      ansible.builtin.file:
+        src: "../usr/share/zoneinfo/{{ utility_timezone }}"
+        dest: /etc/localtime
+        state: link
+        force: true
+      when: utility_tz_link_differs | bool
+
+    - name: Write /etc/timezone
+      ansible.builtin.copy:
+        content: "{{ utility_timezone }}\n"
+        dest: /etc/timezone
+        owner: root
+        group: root
+        mode: "0644"
+      when: utility_tz_file_differs | bool

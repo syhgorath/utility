@@ -1,0 +1,9 @@
+# Ortak varsayılanlar (component.json vars ile aynı). Her rol kendi değişkeninin varsayılanını ayrıca taşır: include_role varsayılanları
+# sonraki görevlere açmaz. Önceliği en düşük olan bunlardır; sshpocket değerleri -e ile verir.
+utility_backup: true        # false = değiştirmeden önce yedek ALMA
+utility_restore_from: ""    # geri_yukle: yedek adı (örn. 20261105T101500Z); boş = en son yedek
+
+# İç değerler
+utility_supported_os: { Ubuntu: ["26.04"] }
+utility_planned_os: { Debian: ["13"] }     # component.json'da planned: playbook çalışır ama doğrulanmadı (uyarı)
+utility_backup_root: /var/backups/utility

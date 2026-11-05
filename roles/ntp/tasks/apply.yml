@@ -1,0 +1,49 @@
+- name: Apply NTP
+  when: "'ntp' in utility_plan or 'paket' in utility_plan"
+  block:
+    - name: Install chrony
+      ansible.builtin.apt:
+        name: chrony
+        state: present
+      when: utility_ntp_need_pkg | bool
+      notify: Restart chrony
+
+    # chrony.conf'a dokunmuyoruz: drop-in dizinleri tanımlı değilse yapılandırma çalışmaz, bunu sessizce geçmek yerine dururuz.
+    - name: Check chrony.conf reads /etc/chrony/sources.d
+      ansible.builtin.command: grep -Eq '^[[:space:]]*sourcedir[[:space:]]+/etc/chrony/sources\.d' /etc/chrony/chrony.conf
+      changed_when: false
+      when: not ansible_check_mode
+      register: utility_ntp_sourcedir
+      failed_when: false
+
+    - name: Fail when chrony.conf has no sourcedir for sources.d
+      ansible.builtin.fail:
+        msg: >-
+          utility: /etc/chrony/chrony.conf 'sourcedir /etc/chrony/sources.d' satırını içermiyor; utility chrony.conf'a dokunmadığı için
+          drop-in uygulanamaz (Ubuntu 26.04'te bu satır vardır; Debian 13'te doğrulanmadı).
+      when: not ansible_check_mode and utility_ntp_sourcedir.rc != 0
+
+    - name: Ensure sources.d exists
+      ansible.builtin.file:
+        path: /etc/chrony/sources.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Write utility.sources
+      ansible.builtin.copy:
+        content: "{{ utility_ntp_content }}"
+        dest: /etc/chrony/sources.d/utility.sources
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart chrony
+
+    - name: Enable and start chrony
+      ansible.builtin.systemd:
+        name: chrony
+        enabled: true
+        state: started
+      # --check'te paket kurulmayacağı için servis birimi henüz yok
+      when: not (ansible_check_mode and utility_ntp_need_pkg | bool)
