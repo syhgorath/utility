@@ -3,7 +3,7 @@
 [sshpocket](https://github.com/syhgorath/sshpocket) paketi: sunucunun **saat dilimini**, **sistem dilini (`LANG`)** ve **NTP kaynaklarını (chrony)** menüden, önizleyerek, yedekleyerek ve onayla yönetir.
 Düşük riskli, dar kapsamlı bir pakettir: ssh, ufw ve PAM'a dokunmaz, erişimi kesmez. Bu yüzden `linux-hardening`'deki zamanlayıcılı geri alma güvenlik ağı **yoktur**; yerine önizleme, yedek ve idempotans vardır.
 
-> **Durum: v0.1.0, yayınlanmadı.** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: gerçek VM turu henüz yapılmadı.
+> **Durum: v0.1.0.** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: Ubuntu 26.04 gerçek VM'de denendi, Debian 13 VM ve sshpocket menüsü denenmedi.
 
 ## Profiller
 | Profil | Durum | Not |
@@ -44,7 +44,7 @@ Parola/anahtar değişkeni yoktur.
 - Zamanlayıcılı rollback yoktur. Yanlış NTP kaynağının en kötü sonucu saat senkronunun kaybıdır (ssh sertifikaları, TOTP, apt "Not live until" etkilenebilir); erişim kaybı değil.
 
 ## `linux-hardening` ile birlikte kullanım
-Bilinen etkileşimler (kaynak: Ubuntu 26.04 chrony dosyaları ve linux-hardening belgeleri; **birlikte çalışma henüz gerçek sunucuda denenmedi**):
+Bilinen etkileşimler (kaynak: Ubuntu 26.04 chrony dosyaları ve linux-hardening belgeleri; **birlikte çalışma yalnızca kısmen denendi, aşağıdaki tabloya bakın**):
 - auditd `/etc/localtime`, `adjtimex`, `settimeofday`, `clock_settime` izler: saat dilimi değişince `time-change` kaydı beklenir (`apply` uyarı yazar).
 - `hardening_ufw_outgoing_deny` açıkken 123/udp çıkışı izinli olmalıdır; Ubuntu'nun varsayılan NTS kaynakları ayrıca 4460/tcp (NTS-KE) ister (`sources.d/ubuntu-ntp-pools.sources` bunu yazar). utility NTS yönetmez.
 
@@ -55,12 +55,16 @@ Bilinen etkileşimler (kaynak: Ubuntu 26.04 chrony dosyaları ve linux-hardening
 | LAB (Colima + systemd'li `ubuntu:26.04` konteyneri): `bats test/e2e/lab.bats` | 13/13: durum → preview (hiçbir şey yazmaz) → apply → ikinci apply `changed=0` → ikinci preview `degisen=0` → değişiklik → `geri_yukle` (`--check` dahil) → ilk yedeğe dönüş |
 | Aynı LAB, `LAB_BASE=debian:trixie` konteyneri | 13/13 geçti; bu **Debian 13 VM doğrulaması değildir** (konteynerde `systemd-timesyncd` yok, chrony servisi başlamaz) |
 | `bats test/backup.bats` (yedek betiği birim testleri), `test/run-all.sh` | yeşil |
-| **Gerçek VM: ubuntutest (Ubuntu 26.04)** | **denenmedi** |
+| Gerçek VM: ubuntutest (Ubuntu 26.04, linux-hardening uygulanmış; doğrudan playbook) | ✅ `durum` → `preview` (`degisen=2 plan=timezone+ntp`, auditd uyarısı görüldü) → `apply` (`changed` yazanlar yalnızca timezone+ntp) → bağımsız ssh doğrulaması → ikinci `preview` `changed=0` → `geri_yukle` (saat dilimi ve utility.sources geri geldi). Yedek dizin 0700, manifest 0600; `files/` boştu (değişen yollar sembolik bağ ve olmayan dosyalardı) |
+| Gerçek VM: **denenmeyenler** | locale **değişikliği** (VM zaten `en_US.UTF-8` idi: `locales`/`locale-gen` yolu VM'de denenmedi), birden çok `utility_ntp_servers`, `ausearch` ile `time-change` kaydı (uyarı görüldü, kayıt bakılmadı), ufw giden-reddi açıkken davranış |
 | **Gerçek VM: düz Debian 13** | **denenmedi** |
-| **linux-hardening uygulanmış VM'de birlikte** | **denenmedi** |
+| linux-hardening ile birlikte | kısmen: yukarıdaki VM hardening'liydi (auditd aktif); ufw giden-reddi ve `ausearch` denenmedi |
 | sshpocket menüsünden uçtan uca | **denenmedi** (kilit PR'ından sonra) |
 
 LAB'ın sınırları: chrony.service konteynerde başlamaz (`ConditionVirtualization=!container`), bu yüzden LAB'da NTP **senkronu** denenemez; yalnızca yapılandırma, paket ve idempotans denenir. Çekirdek paylaşılır; `--privileged` yalnızca bu LAB içindir.
+
+## Bilinen sorunlar
+- Ubuntu 26.04'te doğrudan `ansible-playbook --ask-become-pass` ile `Timeout (12s) waiting for privilege escalation prompt` alınır (sudo-rs): `-e ansible_become_exe=/usr/bin/sudo.ws` ekleyin. sshpocket menüsünün bunu kendi çözüp çözmediği doğrulanmadı. Ayrıntı: [docs/vm-turu.md](docs/vm-turu.md).
 
 ## Yerel deneme
 ```bash

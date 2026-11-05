@@ -11,26 +11,30 @@
 printf 'utility:\n  hosts:\n    vm:\n      ansible_host: 192.168.1.183\n      ansible_user: KULLANICI\n' > /tmp/utility-inv.yml
 printf '{"utility_timezone":"Europe/Istanbul","utility_locale":"en_US.UTF-8","utility_ntp_servers":["pool 2.pool.ntp.org"]}' > /tmp/utility-vars.json
 ```
+- ssh anahtarınız **parolalıysa** önce `ssh-add` ile ajana ekleyin: Ansible parola soramaz, aksi halde `Permission denied (publickey)` görürsünüz. Anahtar ajanda değilse envantere `ansible_ssh_private_key_file: ~/.ssh/<anahtar>` satırı ekleyin.
+- Komutlardaki `-e ansible_become_exe=/usr/bin/sudo.ws` **yalnızca Ubuntu 26.04** içindir (aşağıda "Bilinen sorunlar"); Debian 13'te gerekmez, kaldırın.
+- Her ansible koşusu hardening'li VM'de dakikalar sürebilir (ölçülmedi; ssh/sudo yavaşlığı olabilir). `ansible.cfg`'ye `pipelining`/`ControlPersist` eklemek hızlandırabilir ama **denenmedi**, eklenmedi.
+
 (`/tmp` yerine bir klasör seçebilirsiniz; dosyalarda gizli değer yoktur.)
 
 ## Sıra
 ```bash
 cd ~/Developer/utility
 .venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/durum.yml
-.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/preview.yml --check --diff -e @/tmp/utility-vars.json --ask-become-pass
+.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/preview.yml --check --diff -e @/tmp/utility-vars.json --ask-become-pass -e ansible_become_exe=/usr/bin/sudo.ws
 ```
 Snapshot teyidinden sonra:
 ```bash
-.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/apply.yml -e @/tmp/utility-vars.json --ask-become-pass
+.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/apply.yml -e @/tmp/utility-vars.json --ask-become-pass -e ansible_become_exe=/usr/bin/sudo.ws
 ```
 Bağımsız salt okunur doğrulama (ayrı bir ssh oturumundan):
 ```bash
-ssh KULLANICI@IP 'timedatectl; grep ^LANG= /etc/default/locale; cat /etc/chrony/sources.d/utility.sources; chronyc sources; sudo ls -l /var/backups/utility/*/'
+ssh KULLANICI@IP 'timedatectl; grep ^LANG= /etc/default/locale; cat /etc/chrony/sources.d/utility.sources; chronyc sources; sudo sh -c "ls -ld /var/backups/utility /var/backups/utility/*/; ls -l /var/backups/utility/*/ /var/backups/utility/*/files"'
 ```
 İkinci önizleme (`degisen=0` ve `changed=0` beklenir), sonra geri yükleme:
 ```bash
-.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/preview.yml --check --diff -e @/tmp/utility-vars.json --ask-become-pass
-.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/geri_yukle.yml --ask-become-pass
+.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/preview.yml --check --diff -e @/tmp/utility-vars.json --ask-become-pass -e ansible_become_exe=/usr/bin/sudo.ws
+.venv/bin/ansible-playbook -i /tmp/utility-inv.yml playbooks/geri_yukle.yml --ask-become-pass -e ansible_become_exe=/usr/bin/sudo.ws
 ```
 (Menüden değil doğrudan çalıştırıldığı için sshpocket'in onay/ön koşul kapıları yoktur.)
 
@@ -41,3 +45,6 @@ ssh KULLANICI@IP 'timedatectl; grep ^LANG= /etc/default/locale; cat /etc/chrony/
 
 ## Ardından: linux-hardening uygulanmış VM'de birlikte
 Aynı sıra; ek olarak `sudo ausearch -k time-change` (saat dilimi değişince kayıt beklenir) ve ufw giden trafik reddi açıkken 123/udp (ve Ubuntu varsayılan NTS kaynakları için 4460/tcp) davranışı not edilir.
+
+## Bilinen sorunlar
+- **Ubuntu 26.04, `--ask-become-pass`:** sudo varsayılan olarak `sudo-rs`; Ansible'ın parola istemini tanıyamaz ve `Timeout (12s) waiting for privilege escalation prompt` ile düşer. Çözüm: `-e ansible_become_exe=/usr/bin/sudo.ws` (linux-hardening `docs/known-issues.md` ile aynı). sshpocket menüsünün bunu kendisi çözüp çözmediği **doğrulanmadı**.
