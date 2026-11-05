@@ -20,7 +20,7 @@
       ansible.builtin.fail:
         msg: >-
           utility: /etc/chrony/chrony.conf 'sourcedir /etc/chrony/sources.d' satırını içermiyor; utility chrony.conf'a dokunmadığı için
-          drop-in uygulanamaz (Ubuntu 26.04'te bu satır vardır; Debian 13'te doğrulanmadı).
+          drop-in uygulanamaz (Ubuntu 26.04 ve Debian 13'te bu satır vardır).
       when: not ansible_check_mode and utility_ntp_sourcedir.rc != 0
 
     - name: Ensure sources.d exists

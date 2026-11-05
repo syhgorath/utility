@@ -38,7 +38,7 @@ ssh KULLANICI@IP 'timedatectl; grep ^LANG= /etc/default/locale; cat /etc/chrony/
 ```
 (Menüden değil doğrudan çalıştırıldığı için sshpocket'in onay/ön koşul kapıları yoktur.)
 
-## Debian 13'te özellikle bakılacaklar (doğrulanana kadar `planned`)
+## Debian 13'te bakılacaklar (13.7 tek VM'de doğrulandı: chrony kurulumu timesyncd'yi kaldırdı, `sourcedir` var)
 - `apt` ile chrony kurulumu `systemd-timesyncd`'yi kaldırıyor/devre dışı bırakıyor mu? (`systemctl status systemd-timesyncd chrony` önce/sonra)
 - `/etc/chrony/chrony.conf` içinde `sourcedir /etc/chrony/sources.d` var mı? (yoksa apply bilerek durur)
 - `chronyc sources` utility kaynağını gösteriyor mu; `timedatectl show -p NTPSynchronized` `yes` oluyor mu?

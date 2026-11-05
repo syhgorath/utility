@@ -4,6 +4,6 @@ utility_backup: true        # false = değiştirmeden önce yedek ALMA
 utility_restore_from: ""    # geri_yukle: yedek adı (örn. 20261105T101500Z); boş = en son yedek
 
 # İç değerler
-utility_supported_os: { Ubuntu: ["26.04"] }
-utility_planned_os: { Debian: ["13"] }     # component.json'da planned: playbook çalışır ama doğrulanmadı (uyarı)
+utility_supported_os: { Ubuntu: ["26.04"], Debian: ["13"] }
+utility_planned_os: {}                     # component.json'da planned: playbook çalışır ama doğrulanmadı (şu an boş)
 utility_backup_root: /var/backups/utility
