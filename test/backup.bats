@@ -11,16 +11,18 @@ setup() {
   printf 'a\n' > "$R/etc/chrony/sources.d/utility.sources"
 }
 req() { "$PY" -I "$SCRIPT" "$1"; }
+# GNU stat önce (-c); BSD/macOS stat -c bilmez ve hata döner. (GNU'da "stat -f" dosya SİSTEMİ durumudur: sırası ters olmamalı.)
+mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 jget() { "$PY" -I -c 'import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]])' "$1" "$2"; }
 
 @test "backup: dizin 0700, dosyalar 0600, manifest var, yok olan 'absent'" {
   out=$(req '{"mode":"backup","root":"'"$R"'","dir":"/var/backups/utility","paths":["/etc/localtime","/etc/default/locale","/etc/chrony/sources.d/utility.sources","/etc/timezone"],"stamp":"20261105T101500Z"}')
   [ "$(jget "$out" saved)" = 4 ]
   d="$R/var/backups/utility/20261105T101500Z"
-  [ "$(stat -f %Lp "$R/var/backups/utility" 2>/dev/null || stat -c %a "$R/var/backups/utility")" = 700 ]
-  [ "$(stat -f %Lp "$d" 2>/dev/null || stat -c %a "$d")" = 700 ]
-  [ "$(stat -f %Lp "$d/manifest.json" 2>/dev/null || stat -c %a "$d/manifest.json")" = 600 ]
-  for f in "$d"/files/*; do [ "$(stat -f %Lp "$f" 2>/dev/null || stat -c %a "$f")" = 600 ]; done
+  [ "$(mode "$R/var/backups/utility")" = 700 ]
+  [ "$(mode "$d")" = 700 ]
+  [ "$(mode "$d/manifest.json")" = 600 ]
+  for f in "$d"/files/*; do [ "$(mode "$f")" = 600 ]; done
   grep -q '"state": "absent"' "$d/manifest.json"
   grep -q '"state": "symlink"' "$d/manifest.json"
 }
@@ -28,12 +30,14 @@ jget() { "$PY" -I -c 'import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]
 @test "backup: aynı saniyede ikinci yedek ezilmez" {
   a='{"mode":"backup","root":"'"$R"'","dir":"/var/backups/utility","paths":["/etc/localtime"],"stamp":"20261105T101500Z"}'
   req "$a" >/dev/null; out=$(req "$a")
-  [[ "$(jget "$out" dir)" == *"20261105T101500Z-1" ]]
+  [[ "$(jget "$out" dir)" == *"20261105T101500Z-1" ]] || false
 }
 
 @test "backup: katalog dışı yol ve '..' reddedilir" {
   run req '{"mode":"backup","root":"'"$R"'","dir":"/var/backups/utility","paths":["/etc/shadow"]}'
-  [ "$status" -eq 1 ]; [[ "$output" == *"katalog dışı"* ]]
+  [ "$status" -eq 1 ]
+  # hata JSON'u ASCII'ye kaçırılır (\u0131...): çözülmüş metne bakılır
+  [[ "$(jget "$output" error)" == *"katalog dışı"* ]] || false
   run req '{"mode":"backup","root":"'"$R"'","dir":"/var/backups/utility","paths":["/etc/chrony/sources.d/../../shadow"]}'
   [ "$status" -eq 1 ]
 }
@@ -71,7 +75,8 @@ jget() { "$PY" -I -c 'import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]
   [ ! -e "$R/etc/passwd" ]
   mv "$m.bak" "$m"; echo tamper >> "$R/var/backups/utility/20261105T101500Z/files/0"
   run req '{"mode":"restore","root":"'"$R"'","dir":"/var/backups/utility","from":""}'
-  [ "$status" -eq 1 ]; [[ "$output" == *"yedek bozuk"* ]]
+  [ "$status" -eq 1 ]
+  [[ "$(jget "$output" error)" == *"yedek bozuk"* ]] || false
 }
 
 @test "restore: from biçimi doğrulanır, yedek yoksa hata" {
