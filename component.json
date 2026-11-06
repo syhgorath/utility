@@ -17,8 +17,8 @@
       "effects": [],
       "requires_sudo": false,
       "confirm": "none",
-      "warnings": ["Salt okunur: saat dilimi, LANG, chrony durumu, ofseti ve gerçek sapmayı (seçili kaynak yoksa erişilebilir kaynakların farkı) okur; hiçbir şeyi değiştirmez. ntp_senkron=yes için chrony çalışırken seçili kaynak ve sapma <= 1 sn gerekir. chrony kurulu değilse ntp_servis=inactive/unknown, ofset ve sapma unknown görünür."],
-      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.durum", "keys": ["timezone", "locale", "ntp_servis", "ntp_senkron", "offset_ms", "kaynak_sayisi", "sapma_ms", "secili_kaynak"] }
+      "warnings": ["Salt okunur: saat dilimi, LANG, chrony durumu, ofseti ve gerçek sapmayı (seçili kaynak yoksa erişilebilir kaynakların farkı) okur; hiçbir şeyi değiştirmez. ntp_senkron=yes için chrony çalışırken seçili kaynak ve sapma <= 1 sn, ayrıca sunucu saatinin kontrol makinesinden en çok 300 sn farklı olması gerekir (saat_sapma_kontrolcuye_gore_sn; chrony snapshot/rollback sonrası bayat ve yanıltıcı olabilir). chrony kurulu değilse ntp_servis=inactive/unknown, ofset ve sapma unknown görünür."],
+      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.durum", "keys": ["timezone", "locale", "ntp_servis", "ntp_senkron", "offset_ms", "kaynak_sayisi", "sapma_ms", "secili_kaynak", "saat_sapma_kontrolcuye_gore_sn"] }
     },
     "preview": {
       "cmd": "ansible-playbook playbooks/preview.yml --check --diff",
@@ -28,7 +28,8 @@
       "warnings": [
         "Önizleme yalnızca dosya farkını ve plan adlarını gösterir: timedatectl, locale-gen, paket kurulumu ve chrony yeniden başlatması --check'te çalışmaz, gösterilmez.",
         "Boş bırakılan utility_timezone / utility_locale / utility_ntp_servers o alana hiç dokunulmayacağı anlamına gelir.",
-        "chrony çalışıyorsa ve saat 1 sn'den fazla sapmışsa plana 'saat' girer: apply tek seferlik adımlar. chrony bu koşuda kurulacaksa sapma önizlemede ölçülemez."
+        "chrony çalışıyorsa ve saat 1 sn'den fazla sapmışsa plana 'saat' girer: apply tek seferlik adımlar. chrony bu koşuda kurulacaksa sapma önizlemede ölçülemez. Sunucu saati kontrol makinesine göre 300 sn'den fazla farklıysa (chrony göstermese de) plana yine 'saat' girer.",
+        "Kontrol makinesi saati referans alınır: o yanlışsa karşılaştırma da yanlış uyarır."
       ],
       "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.preview", "keys": ["degisen", "plan"] }
     },
@@ -44,7 +45,7 @@
         "Yanlış NTP kaynağının en kötü sonucu saat senkronunun kaybıdır (ssh sertifikaları, TOTP, apt 'Not live until' etkilenebilir); erişim kaybı değil.",
         "auditd açıksa saat dilimi değişimi 'time-change' kaydı üretir (beklenen). ufw giden trafiği reddediyorsa (hardening_ufw_outgoing_deny) NTP için 123/udp çıkışı gerekir.",
         "locale-gen ve chrony kurulumu gerekirse apt ile paket kurar (locales, chrony); geri_yukle paketleri kaldırmaz.",
-        "Saat 1 sn'den fazla sapmışsa (chrony çalışıyorken ölçülür) apply kaynaklar erişilebilir olunca TEK SEFERLİK `chronyc makestep` yapar (en çok 60 sn bekler; kalıcı makestep ayarı yazılmaz). Adımlama zaman sıçramasıdır: log damgaları, cron işleri, auditd 'time-change' kaydı, ssh/TOTP/sertifika geçerliliği etkilenebilir. Kapatmak için utility_ntp_makestep=false.",
+        "Saat 1 sn'den fazla sapmışsa (chrony çalışıyorken ölçülür) apply kaynaklar erişilebilir olunca TEK SEFERLİK `chronyc makestep` yapar (en çok 60 sn bekler; kalıcı makestep ayarı yazılmaz). Adımlama zaman sıçramasıdır: log damgaları, cron işleri, auditd 'time-change' kaydı, ssh/TOTP/sertifika geçerliliği etkilenebilir. Kapatmak için utility_ntp_makestep=false. Sunucu saati kontrol makinesine göre 300 sn'den fazla farklıysa chrony önce yeniden başlatılır (bayat ölçüm) ve makestep denenir; hâlâ farklıysa ve utility_ntp_clock_from_controller=true ise (varsayılan false) saat kontrol makinesinin saatine 'date -s' ile ayarlanır (chrony taze bir kaynakla doğruluyorsa dokunulmaz; kontrol makinesinin saati yanlışsa sunucu da yanlış olur).",
         "Saat dilimi değişince systemd-timedated yeniden başlatılır (timedatectl önbelleği eski değeri tutmasın)."
       ],
       "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.apply", "keys": ["degisen", "plan", "yedek"] }
@@ -67,6 +68,7 @@
     { "name": "utility_timezone", "type": "string", "default": "", "group": "Zaman", "description": "Saat dilimi (örn. Europe/Istanbul). Boş = saat dilimine dokunma. /usr/share/zoneinfo altında var olmalı." },
     { "name": "utility_locale", "type": "string", "default": "", "group": "Dil", "description": "Sistem dili: yalnızca LANG (örn. en_US.UTF-8). Boş = dokunma. LC_* yönetilmez. Gerekirse locales kurulur ve locale üretilir." },
     { "name": "utility_ntp_servers", "type": "list[string]", "default": [], "group": "NTP", "description": "NTP kaynakları (en çok 8): 'host', 'server host' ya da 'pool host'; iburst otomatik eklenir. Boş = dağıtım varsayılanı (dosya yazılmaz, chrony kurulmaz). Dağıtımın varsayılan kaynakları kalır." },
+    { "name": "utility_ntp_clock_from_controller", "type": "bool", "default": false, "group": "NTP", "description": "Sunucu saati kontrol makinesine göre 300 sn'den fazla farklıysa ve chrony saati bir kaynakla doğrulayamıyorsa apply saati KONTROL MAKİNESİNİN saatine 'date -s' ile ayarlar. Kontrol makinesinin saati yanlışsa sunucu da yanlış olur. false = yalnız chrony." },
     { "name": "utility_ntp_makestep", "type": "bool", "default": true, "group": "NTP", "description": "Saat 1 sn'den fazla sapmışsa apply chrony çalışırken TEK SEFERLİK 'chronyc makestep' yapar (kalıcı ayar yazılmaz). false = sapmaya dokunma." },
     { "name": "utility_backup", "type": "bool", "default": true, "group": "Yedek", "description": "Değiştirmeden önce /var/backups/utility/<tarih>/ altına yedek al. false = yedek alınmaz ve geri_yukle yeni değişikliği geri alamaz." },
     { "name": "utility_restore_from", "type": "string", "default": "", "group": "Yedek", "description": "geri_yukle için yedek adı (örn. 20261105T101500Z). Boş = en son yedek." }

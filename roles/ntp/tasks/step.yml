@@ -1,10 +1,15 @@
-# SAAT ADIMLAMA (yalnızca gerçek koşu): chrony yeni kaynaklarla çalışırken sapma eşikten büyükse TEK SEFERLİK `chronyc makestep`.
-# Kaynaklar erişilebilir olana kadar bekler (utility_ntp_step_timeout_s); kalıcı makestep ayarı YAZILMAZ.
-# chrony bu koşuda kurulduysa/değiştiyse ('paket' ya da 'ntp' planda) ölçülemese bile beklenir: erişilemeyen kaynak burada görünür.
+# SAAT ADIMLAMA (yalnızca gerçek koşu). İki aşama:
+#  A) chrony (utility_ntp_makestep): sapma eşikten büyükse TEK SEFERLİK `chronyc makestep`; kaynaklar erişilebilir olana kadar bekler.
+#     chrony "sapma yok" derken kontrol makinesine göre saat çok farklıysa (snapshot/rollback sonrası bayat durum) chrony ÖNCE yeniden başlatılır.
+#  B) kontrolcü saati (utility_ntp_clock_from_controller, varsayılan false): A sonrası fark sürüyorsa ve chrony saati KAYNAKLA doğrulayamıyorsa
+#     `date -s` ile kontrol makinesinin saatine ayarlanır. Kalıcı makestep ayarı YAZILMAZ.
 - name: Restart chrony now if its configuration changed (before measuring)
   ansible.builtin.meta: flush_handlers
 
-- name: Step the clock
+- name: Compare with the controller clock (before)
+  ansible.builtin.include_tasks: skew.yml
+
+- name: Step the clock with chrony
   when: not ansible_check_mode and utility_ntp_makestep | bool
   block:
     - name: Measure the drift again
@@ -16,10 +21,22 @@
       changed_when: false
       failed_when: false
 
+    # bayat chrony: kendi ölçümüne göre sapma yok ama kontrolcüye göre büyük sapma var
     - name: Decide whether to step
       ansible.builtin.set_fact:
         utility_clock_now: "{{ (utility_clock_now_raw.stdout if utility_clock_now_raw.rc == 0 and (utility_clock_now_raw.stdout | default('')) | length > 0 else '{}') | from_json }}"
         utility_clock_touched: "{{ 'paket' in utility_plan or 'ntp' in utility_plan }}"
+    - name: Detect stale chrony state
+      ansible.builtin.set_fact:
+        utility_clock_stale: >-
+          {{ utility_clock_now.up | default(false) and utility_ctrl_skew_big | bool and
+             utility_clock_now.drift_s | default(none) is not none and utility_clock_now.drift_s | float <= utility_ntp_step_threshold_s | float }}
+
+    - name: Restart chrony to drop stale measurements
+      ansible.builtin.systemd:
+        name: chrony
+        state: restarted
+      when: utility_clock_stale | bool
 
     - name: Wait for a usable source and step the clock once
       ansible.builtin.script:
@@ -31,17 +48,19 @@
       failed_when: >-
         utility_step_raw.rc != 0 or (utility_step_raw.stdout | default('{}') | from_json).error is defined or
         ((utility_step_raw.stdout | default('{}') | from_json).ok | default(false) | bool == false and
-         (utility_step_raw.stdout | default('{}') | from_json).reason | default('') == 'adimlanamadi')
+         (utility_step_raw.stdout | default('{}') | from_json).reason | default('') == 'adimlanamadi' and
+         not (utility_ntp_clock_from_controller | bool))
       when: >-
         utility_clock_now.up | default(false) and
         ((utility_clock_now.drift_s | default(none) is not none and utility_clock_now.drift_s | float > utility_ntp_step_threshold_s | float)
-         or utility_clock_touched | bool)
+         or utility_clock_touched | bool or utility_clock_stale | bool)
 
     - name: Note the clock step in the plan
       ansible.builtin.set_fact:
         utility_plan: "{{ utility_plan + ['saat'] }}"
       when: >-
-        utility_step_raw is not skipped and (utility_step_raw.stdout | from_json).stepped | default(false) and 'saat' not in utility_plan
+        'saat' not in utility_plan and (utility_clock_stale | bool or
+        (utility_step_raw is not skipped and (utility_step_raw.stdout | from_json).stepped | default(false)))
 
     - name: Report the clock step
       ansible.builtin.debug:
@@ -53,8 +72,83 @@
     - name: Warn when no source became usable
       ansible.builtin.debug:
         msg: >-
-          UYARI (utility): chrony'nin erişilebilir kaynağı yok ({{ utility_step_wait }} sn beklendi); saat sapması ölçülemedi ve düzeltilemedi.
+          UYARI (utility): chrony'nin erişilebilir kaynağı yok ({{ utility_ntp_step_timeout_s }} sn beklendi); saat sapması chrony ile ölçülemedi ve düzeltilemedi.
           Kaynaklara ağ erişimi (123/udp, ufw giden kuralı, DNS) ve `chronyc sources` çıktısını kontrol edin.
-      vars:
-        utility_step_wait: "{{ utility_step_timeout_s | default(utility_ntp_step_timeout_s) }}"
       when: utility_step_raw is not skipped and (utility_step_raw.stdout | from_json).reason | default('') == 'kaynak_yok'
+
+# B) kontrolcü saati — yalnızca açık seçenekle
+- name: Set the clock from the controller
+  when: not ansible_check_mode and utility_ntp_clock_from_controller | bool
+  block:
+    - name: Compare with the controller clock (after chrony)
+      ansible.builtin.include_tasks: skew.yml
+
+    - name: Remember the skew before the manual step
+      ansible.builtin.set_fact:
+        utility_ctrl_skew_before: "{{ utility_ctrl_skew_s }}"
+
+    # chrony bu koşuda bayat bulunup YENİDEN BAŞLATILDIYSA ve şimdi taze bir kaynakla saati doğruluyorsa kontrolcüye değil chrony'ye güvenilir
+    - name: Check whether chrony can verify the clock against a source
+      ansible.builtin.script:
+        cmd: >-
+          utility_clock.py {{ {'mode': 'status', 'threshold': utility_ntp_step_threshold_s} | to_json | quote }}
+        executable: python3
+      register: utility_clock_fin_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Decide whether the controller clock applies
+      ansible.builtin.set_fact:
+        utility_clock_fin: "{{ (utility_clock_fin_raw.stdout if utility_clock_fin_raw.rc == 0 and (utility_clock_fin_raw.stdout | default('')) | length > 0 else '{}') | from_json }}"
+    - name: Controller clock is the only reference
+      ansible.builtin.set_fact:
+        utility_clock_use_ctrl: >-
+          {{ utility_ctrl_skew_big | bool and
+             not (utility_clock_stale | default(false) | bool and utility_clock_fin.up | default(false) and utility_clock_fin.selected | default(false) and
+                  utility_clock_fin.drift_s | default(none) is not none and utility_clock_fin.drift_s | float <= utility_ntp_step_threshold_s | float) }}
+
+    - name: Set the clock to the controller time (date -s)
+      ansible.builtin.command: "date -u -s @{{ lookup('ansible.builtin.pipe', 'date +%s') | int }}"
+      register: utility_date_set
+      changed_when: true
+      when: utility_clock_use_ctrl | bool
+
+    - name: Restart chrony after the manual step
+      ansible.builtin.systemd:
+        name: chrony
+        state: restarted
+      failed_when: false
+      when: utility_clock_use_ctrl | bool and (utility_clock_fin.up | default(false) | bool)
+
+    - name: Compare with the controller clock (verify)
+      ansible.builtin.include_tasks: skew.yml
+      when: utility_clock_use_ctrl | bool
+
+    - name: Fail when the controller clock did not stick
+      ansible.builtin.fail:
+        msg: "utility: saat kontrolcü saatine ayarlanamadı (kalan fark {{ utility_ctrl_skew_s }} sn)."
+      when: utility_clock_use_ctrl | bool and utility_ctrl_skew_big | bool
+
+    - name: Note the controller step in the plan
+      ansible.builtin.set_fact:
+        utility_plan: "{{ utility_plan + ['saat'] }}"
+      when: utility_clock_use_ctrl | bool and 'saat' not in utility_plan
+
+    - name: Report the controller step
+      ansible.builtin.debug:
+        msg: >-
+          utility: saat KONTROL MAKİNESİNİN saatine ayarlandı (`date -s`; önceki fark {{ utility_ctrl_skew_before | default('?') }} sn). Kontrol makinesinin saati
+          yanlışsa sunucu da yanlıştır. Log, cron ve audit kayıtlarında zaman sıçraması beklenen.
+      when: utility_clock_use_ctrl | bool
+
+# A+B sonrası fark sürüyorsa (kontrolcü seçeneği kapalı ya da chrony kaynakla doğruluyor): düzeltme yok, açık uyarı
+- name: Final controller comparison
+  ansible.builtin.include_tasks: skew.yml
+  when: not ansible_check_mode
+
+- name: Warn about the remaining controller skew
+  ansible.builtin.debug:
+    msg: >-
+      UYARI (utility): sunucu saati kontrol makinesine göre hâlâ {{ utility_ctrl_skew_s }} sn farklı. chrony saati kaynakla doğruluyorsa kontrol makinesinin saati
+      yanlış olabilir (dokunulmadı). Aksi halde `chronyc sources -v` ve `chronyc tracking` bayat olabilir; düzeltmek için utility_ntp_clock_from_controller=true.
+  when: not ansible_check_mode and utility_ctrl_skew_big | bool

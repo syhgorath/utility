@@ -34,7 +34,19 @@
       UYARI (utility): saat {{ utility_clock.drift_s }} sn sapmalı (ölçüm: {{ utility_clock.source }}); apply chrony ile TEK SEFERLİK adımlayacak (`chronyc makestep`).
       Adımlama zaman sıçraması demektir: log zaman damgaları, cron işleri, auditd 'time-change' kaydı, ssh/TOTP/sertifika geçerliliği etkilenebilir.
       Sapma kalıcı bir sorunsa (kaynak yok, snapshot'tan açılış) önce kaynakları kontrol edin. Kalıcı 'makestep' ayarı YAZILMAZ.
-  when: "'saat' in utility_plan and utility_clock is defined"
+  when: >-
+    'saat' in utility_plan and utility_clock is defined and utility_ntp_makestep | default(true) | bool and
+    utility_clock.drift_s | default(none) is not none and utility_clock.drift_s | float > utility_ntp_step_threshold_s | default(1.0) | float
+
+- name: Warn about the controller clock difference
+  ansible.builtin.debug:
+    msg: >-
+      UYARI (utility): sunucu saati kontrol makinesine göre {{ utility_ctrl_skew_s }} sn farklı (negatif = sunucu geride); chrony'nin kendi ölçümü
+      bunu göstermese de (snapshot/rollback sonrası bayat durum). apply önce chrony'yi yeniden başlatıp `makestep` dener;
+      {{ 'utility_ntp_clock_from_controller=true: chrony doğrulayamazsa saat kontrol makinesinin saatine ayarlanacak (`date -s`; kontrol makinesinin saati yanlışsa sunucu da yanlış olur).'
+         if utility_ntp_clock_from_controller | default(false) | bool else 'kontrol makinesi saatine ayarlama kapalı (utility_ntp_clock_from_controller=false).' }}
+      Adımlama zaman sıçramasıdır: log zaman damgaları, cron, auditd 'time-change', ssh/TOTP/sertifika geçerliliği etkilenir.
+  when: utility_ctrl_skew_big | default(false) | bool
 
 - name: Note chrony installation and clock drift
   ansible.builtin.debug:

@@ -54,16 +54,20 @@
         utility_backup_paths: "{{ utility_backup_paths + (['/etc/chrony/sources.d/utility.sources'] if utility_ntp_need_file | bool else []) }}"
       when: utility_ntp_need_pkg | bool or utility_ntp_need_file | bool or utility_ntp_need_service | bool
 
-# SAAT SAPMASI (utility_ntp_servers'tan bağımsız): chrony çalışıyorsa ve sapma eşikten büyükse plana 'saat' girer; apply tek seferlik adımlar.
+# SAAT SAPMASI (utility_ntp_servers'tan bağımsız): iki bağımsız ölçüm — chrony sapması ve hedef/kontrol makinesi saat farkı (skew.yml).
+# Biri eşiği aşarsa plana 'saat' girer; apply düzeltir (chrony makestep ve/veya açık seçenekle kontrolcü saati).
 - name: Plan clock step
-  when: utility_ntp_makestep | bool
   block:
     - name: Read the drift
       ansible.builtin.include_tasks: drift.yml
+
+    - name: Compare with the controller clock
+      ansible.builtin.include_tasks: skew.yml
 
     - name: Record the clock step plan
       ansible.builtin.set_fact:
         utility_plan: "{{ utility_plan + ['saat'] }}"
         utility_ntp_need_step: true
       when: >-
-        utility_clock.drift_s | default(none) is not none and utility_clock.drift_s | float > utility_ntp_step_threshold_s | float
+        (utility_ntp_makestep | bool and utility_clock.drift_s | default(none) is not none and utility_clock.drift_s | float > utility_ntp_step_threshold_s | float)
+        or (utility_ctrl_skew_big | bool and (utility_ntp_makestep | bool or utility_ntp_clock_from_controller | bool))

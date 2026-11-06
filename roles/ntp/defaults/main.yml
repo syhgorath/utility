@@ -2,6 +2,10 @@
 utility_ntp_servers: []
 # saat sapması: eşikten büyükse apply TEK SEFERLİK `chronyc makestep` yapar (kalıcı makestep ayarı yazılmaz). false = sapmaya dokunma
 utility_ntp_makestep: true
+# chrony saati düzeltemezse (ya da doğrulayamazsa) apply saati KONTROL MAKİNESİNİN saatine `date -s` ile ayarlar. Kontrol makinesinin saati yanlışsa sunucu yanlışlanır; varsayılan false
+utility_ntp_clock_from_controller: false
 # iç sabitler (manifest değişkeni değil)
 utility_ntp_step_threshold_s: 1.0
 utility_ntp_step_timeout_s: 60
+# hedef-kontrolcü saat farkı bu değeri (sn) aşarsa chrony ne derse desin sapma sayılır
+utility_ntp_ctrl_threshold_s: 300

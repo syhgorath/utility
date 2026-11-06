@@ -1,0 +1,18 @@
+# Hedef saatini KONTROL MAKİNESİNİN (Ansible controller) saatiyle karşılaştırır; chrony'den BAĞIMSIZ ikinci ölçüm (salt okunur; --check'te de çalışır).
+# utility_ctrl_skew_s = hedef epoch - kontrolcü epoch (saniye; negatif = hedef geride), ölçülemezse ''. SSH gecikmesi (saniyeler) eşiğin (300 sn) yanında önemsiz.
+# Neden: chrony'nin kendi sayıları (tracking/sources) VM snapshot/rollback sonrası bayat ama içten tutarlı olabilir ve sapmayı göstermeyebilir.
+- name: Read the target clock
+  ansible.builtin.command: date +%s
+  register: utility_target_epoch
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Compare with the controller clock
+  ansible.builtin.set_fact:
+    utility_ctrl_skew_s: >-
+      {{ (utility_target_epoch.stdout | trim | int - lookup('ansible.builtin.pipe', 'date +%s') | int)
+         if utility_target_epoch.rc == 0 and (utility_target_epoch.stdout | trim) is match('^[0-9]+$') else '' }}
+    utility_ctrl_skew_big: >-
+      {{ utility_target_epoch.rc == 0 and (utility_target_epoch.stdout | trim) is match('^[0-9]+$') and
+         ((utility_target_epoch.stdout | trim | int - lookup('ansible.builtin.pipe', 'date +%s') | int) | abs) > (utility_ntp_ctrl_threshold_s | default(300) | int) }}

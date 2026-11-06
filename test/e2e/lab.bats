@@ -174,7 +174,7 @@ stub_on() {
   stub_on
   run "$RUN" durum
   [ "$status" -eq 0 ]
-  [[ "$(result)" == *" ntp_senkron=no "* && "$(result)" == *" sapma_ms=1152060000.0 secili_kaynak=no" ]]
+  [[ "$(result)" == *" ntp_senkron=no "* && "$(result)" == *" sapma_ms=1152060000.0 secili_kaynak=no saat_sapma_kontrolcuye_gore_sn="* ]]
 }
 
 @test "saat sapması: preview 'saat' planlar ve hiçbir şey adımlamaz" {
@@ -204,7 +204,7 @@ stub_on() {
   run lab sh -c 'wc -l < /run/utility-stub/steps'
   [ "$output" = 1 ]
   run "$RUN" durum
-  [[ "$(result)" == *" ntp_senkron=yes "* && "$(result)" == *" secili_kaynak=yes" ]]
+  [[ "$(result)" == *" ntp_senkron=yes "* && "$(result)" == *" secili_kaynak=yes saat_sapma_kontrolcuye_gore_sn="* ]]
 }
 
 @test "saat sapması: makestep düzeltmezse apply net hatayla düşer" {
@@ -213,6 +213,75 @@ stub_on() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"adimlanamadi"* ]]
   lab rm -f /usr/local/bin/chronyc
+}
+
+# --- kontrolcü saatiyle karşılaştırma (GERÇEK VM bulgusu: chrony bayat durumda sapmayı göstermedi). SAHTE date + SAHTE chronyc ---
+ctrl_on() { # $1=skew sn, $2=chrony: stale (seçili, ofset~0) | none (kaynak yok)
+  docker cp "$BATS_TEST_DIRNAME/lab/chronyc-stub.sh" utility-lab:/usr/local/bin/chronyc
+  docker cp "$BATS_TEST_DIRNAME/lab/date-stub.sh" utility-lab:/usr/local/bin/date
+  lab sh -c "mkdir -p /run/utility-stub && cd /run/utility-stub && echo $1 > skew && rm -f steps datesets"
+  if [ "$2" = stale ]; then lab sh -c 'cd /run/utility-stub && echo 0.0002 > offset && echo 377 > reach && echo 1 > selected'
+  else lab sh -c 'cd /run/utility-stub && echo 0 > offset && echo 0 > reach && echo 0 > selected'; fi
+}
+ctrl_off() { lab rm -f /usr/local/bin/chronyc /usr/local/bin/date; }
+
+@test "kontrolcü farkı: chrony 'sapma yok' dese de durum ntp_senkron=no ve farkı gösterir" {
+  ctrl_on -1123200 stale
+  run "$RUN" durum
+  [ "$status" -eq 0 ]
+  [[ "$(result)" == *" sapma_ms=0.2 "* && "$(result)" == *" ntp_senkron=no "* ]]
+  [[ "$(result)" =~ saat_sapma_kontrolcuye_gore_sn=-11232[0-9][0-9]$ ]] || [[ "$(result)" =~ saat_sapma_kontrolcuye_gore_sn=-11231[0-9][0-9]$ ]]
+}
+
+@test "kontrolcü farkı: preview 'saat' planlar, uyarır, hiçbir şey değiştirmez" {
+  run "$RUN" preview --check
+  [ "$status" -eq 0 ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.preview degisen=1 plan=saat" ]
+  [[ "$output" == *"kontrol makinesine göre"* && "$output" == *"utility_ntp_clock_from_controller=false"* ]]
+  run lab sh -c 'test ! -e /run/utility-stub/datesets && echo temiz'
+  [ "$output" = temiz ]
+}
+
+@test "kontrolcü farkı: makestep=false ve seçenek kapalıyken plan boş, yalnız uyarı" {
+  run "$RUN" preview --check -e utility_ntp_makestep=false
+  [ "$(result)" = "SSHPOCKET_RESULT utility.preview degisen=0 plan=yok" ]
+  [[ "$output" == *"kontrol makinesine göre"* ]]
+}
+
+@test "kontrolcü farkı: chrony taze kaynakla doğruluyorsa kontrolcü saatine DOKUNULMAZ (seçenek açık olsa bile)" {
+  run "$RUN" apply -e utility_ntp_clock_from_controller=true
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hâlâ"* ]]
+  run lab sh -c 'test ! -e /run/utility-stub/datesets && echo temiz'
+  [ "$output" = temiz ]
+}
+
+@test "kontrolcü farkı: kaynak yoksa seçenek açıkken date -s ile kontrolcü saatine ayarlar; ikinci apply boş" {
+  ctrl_on -1123200 none
+  run "$RUN" apply -e utility_ntp_clock_from_controller=true
+  [ "$status" -eq 0 ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.apply degisen=1 plan=saat yedek=hayir" ]
+  [[ "$output" == *"KONTROL MAKİNESİNİN saatine ayarlandı"* ]]
+  run lab sh -c 'wc -l < /run/utility-stub/datesets'
+  [ "$output" = 1 ]
+  run "$RUN" apply -e utility_ntp_clock_from_controller=true
+  [ "$(result)" = "SSHPOCKET_RESULT utility.apply degisen=0 plan=yok yedek=hayir" ]
+}
+
+@test "kontrolcü farkı: seçenek kapalıyken kaynak yoksa saat DEĞİŞMEZ, açık uyarı verir" {
+  ctrl_on -1123200 none
+  run "$RUN" apply
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hâlâ"* ]]
+  run lab sh -c 'test ! -e /run/utility-stub/datesets && echo temiz'
+  [ "$output" = temiz ]
+}
+
+@test "kontrolcü farkı: eşik altı fark (60 sn) planlanmaz" {
+  ctrl_on -60 none
+  run "$RUN" preview --check
+  [ "$(result)" = "SSHPOCKET_RESULT utility.preview degisen=0 plan=yok" ]
+  ctrl_off
 }
 
 teardown_file() { "$BATS_TEST_DIRNAME/lab/down.sh" --clean >&3 || true; }
