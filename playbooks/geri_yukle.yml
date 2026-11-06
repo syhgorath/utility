@@ -11,6 +11,13 @@
     - name: Restore from backup
       ansible.builtin.include_role: {name: common, tasks_from: restore}
 
+    # systemd-timedated saat dilimini önbelleğe alır: geri yazılan /etc/localtime'ı görmesi için yeniden başlatılır
+    - name: Refresh systemd-timedated
+      ansible.builtin.command: systemctl try-restart systemd-timedated
+      changed_when: false
+      failed_when: false
+      when: not ansible_check_mode and ('/etc/localtime' in utility_restore.changed_paths or '/etc/timezone' in utility_restore.changed_paths)
+
     - name: Result line
       ansible.builtin.debug:
         msg: >-

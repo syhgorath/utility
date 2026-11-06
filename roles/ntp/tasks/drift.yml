@@ -1,0 +1,14 @@
+# chrony saat sapmasını okur (salt okunur; --check'te de çalışır): utility_clock = {up, selected, drift_s, source, sources, reachable}
+- name: Read chrony clock drift
+  ansible.builtin.script:
+    cmd: >-
+      utility_clock.py {{ {'mode': 'status', 'threshold': utility_ntp_step_threshold_s} | to_json | quote }}
+    executable: python3
+  register: utility_clock_raw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Parse the drift
+  ansible.builtin.set_fact:
+    utility_clock: "{{ (utility_clock_raw.stdout if utility_clock_raw.rc == 0 and (utility_clock_raw.stdout | default('')) | length > 0 else '{}') | from_json }}"

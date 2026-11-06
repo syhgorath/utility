@@ -38,6 +38,7 @@
       - (utility_ntp_servers | default([])) is sequence and (utility_ntp_servers | default([])) is not string
       - (utility_ntp_servers | default([])) | length <= 8
       - utility_backup | bool in [true, false]
+      - utility_ntp_makestep | default(true) | bool in [true, false]
       - (utility_timezone | default('')) == '' or (utility_timezone | default('')) is match('^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+){0,2}$')
       - (utility_locale | default('')) == '' or (utility_locale | default('')) is match('^(C|POSIX|C\.UTF-8|[a-z]{2,3}_[A-Z]{2}\.(UTF-8|ISO-8859-[0-9]{1,2}))$')
       - >-

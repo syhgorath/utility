@@ -4,6 +4,19 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+Sürüm numarası bekliyor (öneri: 0.2.0: yeni değişken, yeni `durum` alanları, saat adımlama davranışı).
+
+### Eklendi
+- **Saat sapması düzeltme.** chrony çalışırken saat 1 sn'den fazla sapmışsa `preview` plana `saat` ekler ve nedenini yazar; `apply` kaynaklar erişilebilir olunca (en çok 60 sn bekler) TEK SEFERLİK `chronyc makestep` yapar ve eşik altına inmesini doğrular. Kalıcı `makestep` ayarı YAZILMAZ. Ölçülemezse (erişilebilir kaynak yok) uyarır; ölçüldü ama düzelmediyse hata verir. Kapatmak için `utility_ntp_makestep=false` (varsayılan `true`). Uyarı metinleri adımlamanın etkisini (log/cron/auditd `time-change`, ssh/TOTP) söyler.
+- `durum`: `sapma_ms` ve `secili_kaynak` alanları. `ntp_senkron=yes` artık chrony çalışırken seçili kaynak ve sapma <= 1 sn gerektirir (önceden yalnızca `timedatectl`'e bakılırdı; snapshot'tan geri açılan, 13 gün geride bir VM'de yanıltıcı `yes` görülmüştü).
+- Birim testleri `test/clock.bats` (sahte `chronyc`), LAB testleri (sahte `chronyc` ile).
+
+### Düzeltildi
+- `apply` ve `geri_yukle` saat dilimi dosyalarını değiştirince `systemd-timedated` önbelleği eski değeri tutuyordu (`timedatectl show -p Timezone` yanlış; `date` ve `/etc/localtime` doğruydu). Artık `systemctl try-restart systemd-timedated` yapılır. Gerçek Ubuntu 26.04 VM'de ve LAB'da yeniden üretildi; düzeltme yalnız LAB'da sınandı.
+
+### Denenmedi
+- Saat adımlama gerçek VM'de DENENMEDİ: LAB konteynerinde chronyd ve saat adımlama yoktur, testler SAHTE `chronyc` ile yalnızca betik/playbook akışını sınar. Elle `chronyc makestep`'in kaynaklar Reach alınca gerçek VM'de işe yaradığı gözlendi, otomatik yol gözlenmedi.
+
 ## [0.1.0] - 2026-11-05
 
 İlk sürüm.

@@ -27,3 +27,18 @@
       UYARI (utility): ufw giden trafiği varsayılan olarak reddediyor (hardening_ufw_outgoing_deny). NTP kaynakları yalnızca 123/udp çıkışı
       izinliyse çalışır; yoksa kaynaklara ulaşılamaz ve saat senkronu kaybolur. NTS bu sürümde yok.
   when: (utility_ntp_servers | default([])) | length > 0 and 'deny (outgoing)' in utility_ufw.stdout | default('')
+
+- name: Warn about the clock step
+  ansible.builtin.debug:
+    msg: >-
+      UYARI (utility): saat {{ utility_clock.drift_s }} sn sapmalı (ölçüm: {{ utility_clock.source }}); apply chrony ile TEK SEFERLİK adımlayacak (`chronyc makestep`).
+      Adımlama zaman sıçraması demektir: log zaman damgaları, cron işleri, auditd 'time-change' kaydı, ssh/TOTP/sertifika geçerliliği etkilenebilir.
+      Sapma kalıcı bir sorunsa (kaynak yok, snapshot'tan açılış) önce kaynakları kontrol edin. Kalıcı 'makestep' ayarı YAZILMAZ.
+  when: "'saat' in utility_plan and utility_clock is defined"
+
+- name: Note chrony installation and clock drift
+  ansible.builtin.debug:
+    msg: >-
+      BİLGİ (utility): chrony bu koşuda kurulacak/değişecek; saat sapması önizlemede ölçülemez. apply, chrony başlayınca sapmayı ölçer
+      ve gerekirse (>{{ utility_ntp_step_threshold_s | default(1.0) }} sn) tek seferlik adımlar.
+  when: "'paket' in utility_plan and (utility_ntp_makestep | default(true) | bool)"

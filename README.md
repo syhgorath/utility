@@ -13,7 +13,7 @@ Düşük riskli, dar kapsamlı bir pakettir: ssh, ufw ve PAM'a dokunmaz, erişim
 
 **Proxmox VE bilerek reddedilir:** Proxmox VE 9 Debian 13 tabanlıdır ve OS eşlemesinden geçerdi; bu yüzden ön kontrol `/usr/bin/pveversion` ya da `/etc/pve` varsa (`--check` dahil) "Proxmox VE v0.1 kapsam dışı" diye durur. Bu koruma sahte `pveversion` ile LAB'da test edildi, **gerçek Proxmox'ta denenmedi**.
 
-Kapsam dışı (v0.1): Proxmox VE, Raspberry Pi, hostname, apt kaynakları, NTS, `makestep`, `LC_*`.
+Kapsam dışı: Proxmox VE, Raspberry Pi, hostname, apt kaynakları, NTS, kalıcı `makestep` ayarı, `LC_*`. (Tek seferlik saat adımlama kapsamdadır, aşağıya bakın.)
 
 ## Eylemler
 | Eylem | Etki | Sudo | Ne yapar |
@@ -29,6 +29,7 @@ Kapsam dışı (v0.1): Proxmox VE, Raspberry Pi, hostname, apt kaynakları, NTS,
 | `utility_timezone` | string | boş | Örn. `Europe/Istanbul`. Boş = dokunma |
 | `utility_locale` | string | boş | Yalnızca `LANG`, örn. `en_US.UTF-8`. Boş = dokunma. Gerekirse `locales` kurulur ve locale üretilir |
 | `utility_ntp_servers` | list[string] | `[]` | En çok 8: `host`, `server host` veya `pool host` (`iburst` eklenir). Boş = dağıtım varsayılanı; dosya yazılmaz, chrony kurulmaz |
+| `utility_ntp_makestep` | bool | `true` | Saat 1 sn'den fazla sapmışsa `apply` chrony çalışırken TEK SEFERLİK `chronyc makestep` yapar (kaynaklar erişilebilir olana kadar en çok 60 sn bekler). `false` = sapmaya dokunma. Kalıcı ayar yazılmaz |
 | `utility_backup` | bool | `true` | `false` = yedek alınmaz (ve `geri_yukle` o değişikliği geri alamaz) |
 | `utility_restore_from` | string | boş | `geri_yukle` için yedek adı (`20261105T101500Z`); boş = en son yedek |
 
@@ -71,7 +72,8 @@ LAB'ın sınırları: chrony.service konteynerde başlamaz (`ConditionVirtualiza
 ## Sınırlar ve v0.2 için bilinenler
 - NTP kaynakları dağıtımın varsayılanlarının **yanına eklenir**; mevcut kaynakları (Ubuntu `ubuntu-ntp-pools.sources`, Debian `chrony.conf` pool satırları) silmez ve devre dışı bırakmaz. Biçim denetimi yalnızca `host`, `server host`, `pool host` kabul eder.
 - v0.2 adayları (kod yok): (a) yerel NTP için dağıtım varsayılan kaynaklarını devre dışı bırakma seçeneği, (b) `prefer`, `minpoll` gibi kaynak seçenekleri.
-- `durum`: chrony kurulu değilken `ntp_senkron=yes` görünebilir, çünkü `timedatectl` `systemd-timesyncd`'nin senkronunu da sayar (`ntp_servis=inactive` ile birlikte okuyun).
+- `durum`: chrony kurulu değilken `ntp_senkron=yes` görünebilir, çünkü `timedatectl` `systemd-timesyncd`'nin senkronunu da sayar (`ntp_servis=inactive` ile birlikte okuyun). chrony çalışırken `yes` için seçili kaynak ve sapma <= 1 sn de gerekir; `sapma_ms` ve `secili_kaynak` alanları bunu gösterir.
+- **Saat adımlama (sapmış saat).** Ölçüm: seçili kaynak varsa `chronyc tracking` farkı, yoksa erişilebilir (reach>0) kaynakların en küçük mutlak farkı. Etkisi bir zaman sıçramasıdır (log damgaları, cron, auditd `time-change`, ssh/TOTP/sertifika). chrony bu koşuda kurulacaksa `preview` sapmayı ölçemez; `apply` chrony başlayınca ölçer. Gerçek VM'de DENENMEDİ (yalnız sahte `chronyc` ile LAB ve birim testi); elle `chronyc makestep` gerçek VM'de işe yaramıştı.
 
 ## Bilinen sorunlar
 - Ubuntu 26.04'te doğrudan `ansible-playbook --ask-become-pass` ile `Timeout (12s) waiting for privilege escalation prompt` alınır (sudo-rs): `-e ansible_become_exe=/usr/bin/sudo.ws` ekleyin. sshpocket menüsünün bunu kendi çözüp çözmediği doğrulanmadı. Ayrıntı: [docs/vm-turu.md](docs/vm-turu.md).

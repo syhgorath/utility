@@ -25,6 +25,8 @@
       ansible.builtin.include_role: {name: locale, tasks_from: apply}
     - name: Apply NTP
       ansible.builtin.include_role: {name: ntp, tasks_from: apply}
+    - name: Step the clock (chrony)
+      ansible.builtin.include_role: {name: ntp, tasks_from: step}
     - name: Show the plan
       ansible.builtin.include_role: {name: common, tasks_from: result}
     - name: Result line

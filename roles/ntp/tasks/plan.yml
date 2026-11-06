@@ -53,3 +53,17 @@
         utility_plan: "{{ utility_plan + (['paket'] if utility_ntp_need_pkg | bool else []) + (['ntp'] if (utility_ntp_need_file | bool or utility_ntp_need_service | bool) else []) }}"
         utility_backup_paths: "{{ utility_backup_paths + (['/etc/chrony/sources.d/utility.sources'] if utility_ntp_need_file | bool else []) }}"
       when: utility_ntp_need_pkg | bool or utility_ntp_need_file | bool or utility_ntp_need_service | bool
+
+# SAAT SAPMASI (utility_ntp_servers'tan bağımsız): chrony çalışıyorsa ve sapma eşikten büyükse plana 'saat' girer; apply tek seferlik adımlar.
+- name: Plan clock step
+  when: utility_ntp_makestep | bool
+  block:
+    - name: Read the drift
+      ansible.builtin.include_tasks: drift.yml
+
+    - name: Record the clock step plan
+      ansible.builtin.set_fact:
+        utility_plan: "{{ utility_plan + ['saat'] }}"
+        utility_ntp_need_step: true
+      when: >-
+        utility_clock.drift_s | default(none) is not none and utility_clock.drift_s | float > utility_ntp_step_threshold_s | float
