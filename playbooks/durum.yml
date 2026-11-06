@@ -1,5 +1,5 @@
 # Salt okunur durum: saat dilimi, LANG, NTP servisi/senkron/ofset/kaynak sayısı. Hiçbir şey değiştirmez, sudo gerektirmez.
-# Sonuç satırı: SSHPOCKET_RESULT utility.durum timezone=… locale=… ntp_servis=… ntp_senkron=yes|no offset_ms=… kaynak_sayisi=…
+# Sonuç satırı: SSHPOCKET_RESULT utility.durum timezone=… locale=… ntp_servis=… ntp_senkron=yes|no offset_ms=… kaynak_sayisi=… sapma_ms=… secili_kaynak=yes|no
 - name: utility durum (salt okunur)
   hosts: utility
   gather_facts: false
@@ -52,9 +52,19 @@
       failed_when: false
       check_mode: false
 
+    # sapma: seçili kaynak varsa tracking, yoksa erişilebilir kaynakların en küçük farkı (utility_clock.py; ntp rolünün drift görevi)
+    - name: Read clock drift
+      ansible.builtin.include_role: {name: ntp, tasks_from: drift}
+
     # chronyc -c tracking alanları: 1 ref-id, 2 ad, 3 katman, 4 ref zamanı, 5 sistem saati farkı (saniye, işaretli) ...
     - name: Result line
       vars:
+        utility_d_clock: "{{ utility_clock }}"
+        # chrony çalışıyorsa 'senkron' = timedatectl yes + seçili kaynak + sapma <= 1 sn; çalışmıyorsa (timesyncd) timedatectl'e bakılır
+        utility_d_synced: >-
+          {{ (utility_d_sync.stdout | default('') | trim == 'yes') and
+             (not (utility_d_clock.up | default(false)) or
+              (utility_d_clock.selected | default(false) and utility_d_clock.drift_s | default(none) is not none and utility_d_clock.drift_s | float <= 1.0)) }}
         utility_d_offset: >-
           {{ ((utility_d_tracking.stdout.split(',')[4] | float * 1000) | round(1)) if utility_d_tracking.rc == 0 and utility_d_tracking.stdout.split(',') | length > 4 else 'unknown' }}
       ansible.builtin.debug:
@@ -63,6 +73,8 @@
           timezone={{ (utility_d_tz.stdout | default('') | trim or 'unknown') | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
           locale={{ (utility_d_lang.stdout | default('') | trim or 'unset') | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
           ntp_servis={{ (utility_d_svc.stdout | default('') | trim or 'unknown') | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
-          ntp_senkron={{ 'yes' if utility_d_sync.stdout | default('') | trim == 'yes' else 'no' }}
+          ntp_senkron={{ 'yes' if utility_d_synced | bool else 'no' }}
           offset_ms={{ utility_d_offset | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(60, True, '') }}
           kaynak_sayisi={{ (utility_d_sources.stdout_lines | default([]) | length) if utility_d_sources.rc == 0 else 0 }}
+          sapma_ms={{ ((utility_d_clock.drift_s | float * 1000) | round(1)) if utility_d_clock.drift_s | default(none) is not none else 'unknown' }}
+          secili_kaynak={{ 'yes' if utility_d_clock.selected | default(false) else 'no' }}

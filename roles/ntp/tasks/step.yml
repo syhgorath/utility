@@ -1,0 +1,60 @@
+# SAAT ADIMLAMA (yalnızca gerçek koşu): chrony yeni kaynaklarla çalışırken sapma eşikten büyükse TEK SEFERLİK `chronyc makestep`.
+# Kaynaklar erişilebilir olana kadar bekler (utility_ntp_step_timeout_s); kalıcı makestep ayarı YAZILMAZ.
+# chrony bu koşuda kurulduysa/değiştiyse ('paket' ya da 'ntp' planda) ölçülemese bile beklenir: erişilemeyen kaynak burada görünür.
+- name: Restart chrony now if its configuration changed (before measuring)
+  ansible.builtin.meta: flush_handlers
+
+- name: Step the clock
+  when: not ansible_check_mode and utility_ntp_makestep | bool
+  block:
+    - name: Measure the drift again
+      ansible.builtin.script:
+        cmd: >-
+          utility_clock.py {{ {'mode': 'status', 'threshold': utility_ntp_step_threshold_s} | to_json | quote }}
+        executable: python3
+      register: utility_clock_now_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Decide whether to step
+      ansible.builtin.set_fact:
+        utility_clock_now: "{{ (utility_clock_now_raw.stdout if utility_clock_now_raw.rc == 0 and (utility_clock_now_raw.stdout | default('')) | length > 0 else '{}') | from_json }}"
+        utility_clock_touched: "{{ 'paket' in utility_plan or 'ntp' in utility_plan }}"
+
+    - name: Wait for a usable source and step the clock once
+      ansible.builtin.script:
+        cmd: >-
+          utility_clock.py {{ {'mode': 'step', 'threshold': utility_ntp_step_threshold_s, 'timeout': utility_ntp_step_timeout_s, 'interval': 5} | to_json | quote }}
+        executable: python3
+      register: utility_step_raw
+      changed_when: (utility_step_raw.stdout | default('{}') | from_json).stepped | default(false)
+      failed_when: >-
+        utility_step_raw.rc != 0 or (utility_step_raw.stdout | default('{}') | from_json).error is defined or
+        ((utility_step_raw.stdout | default('{}') | from_json).ok | default(false) | bool == false and
+         (utility_step_raw.stdout | default('{}') | from_json).reason | default('') == 'adimlanamadi')
+      when: >-
+        utility_clock_now.up | default(false) and
+        ((utility_clock_now.drift_s | default(none) is not none and utility_clock_now.drift_s | float > utility_ntp_step_threshold_s | float)
+         or utility_clock_touched | bool)
+
+    - name: Note the clock step in the plan
+      ansible.builtin.set_fact:
+        utility_plan: "{{ utility_plan + ['saat'] }}"
+      when: >-
+        utility_step_raw is not skipped and (utility_step_raw.stdout | from_json).stepped | default(false) and 'saat' not in utility_plan
+
+    - name: Report the clock step
+      ansible.builtin.debug:
+        msg: >-
+          utility: saat adımlandı (sapma {{ (utility_step_raw.stdout | from_json).initial_drift_s }} sn -> {{ (utility_step_raw.stdout | from_json).drift_s }} sn,
+          {{ (utility_step_raw.stdout | from_json).waited_s }} sn beklendi). Log, cron ve audit kayıtlarında zaman sıçraması beklenen.
+      when: utility_step_raw is not skipped and (utility_step_raw.stdout | from_json).stepped | default(false)
+
+    - name: Warn when no source became usable
+      ansible.builtin.debug:
+        msg: >-
+          UYARI (utility): chrony'nin erişilebilir kaynağı yok ({{ utility_step_wait }} sn beklendi); saat sapması ölçülemedi ve düzeltilemedi.
+          Kaynaklara ağ erişimi (123/udp, ufw giden kuralı, DNS) ve `chronyc sources` çıktısını kontrol edin.
+      vars:
+        utility_step_wait: "{{ utility_step_timeout_s | default(utility_ntp_step_timeout_s) }}"
+      when: utility_step_raw is not skipped and (utility_step_raw.stdout | from_json).reason | default('') == 'kaynak_yok'

@@ -19,3 +19,10 @@
         group: root
         mode: "0644"
       when: utility_tz_file_differs | bool
+
+    # systemd-timedated saat dilimini önbelleğe alır: dosyaları doğrudan yazınca `timedatectl` eski değeri göstermeye devam eder
+    - name: Refresh systemd-timedated
+      ansible.builtin.command: systemctl try-restart systemd-timedated
+      changed_when: false
+      failed_when: false
+      when: not ansible_check_mode and (utility_tz_link_differs | bool or utility_tz_file_differs | bool)

@@ -150,4 +150,69 @@ v2() { cat "$BATS_FILE_TMPDIR/v2path"; }
   [ "$status" -eq 0 ]
 }
 
+# --- timedated önbelleği ---
+@test "timedated: apply ve geri_yukle sonrası timedatectl dosyayla uyumlu" {
+  run lab timedatectl show -p Timezone      # önbelleği doldurur
+  [ "$output" = "Timezone=Etc/UTC" ]
+  run "$RUN" apply -e "@$(v2)"
+  [ "$status" -eq 0 ]
+  run lab timedatectl show -p Timezone
+  [ "$output" = "Timezone=America/New_York" ]
+  run "$RUN" geri_yukle
+  [ "$status" -eq 0 ]
+  run lab timedatectl show -p Timezone
+  [ "$output" = "Timezone=Etc/UTC" ]
+}
+
+# --- saat sapması (SAHTE chronyc: LAB'da chronyd ve saat adımlama yok; yalnızca utility_clock.py + playbook akışı sınanır) ---
+stub_on() {
+  docker cp "$BATS_TEST_DIRNAME/lab/chronyc-stub.sh" utility-lab:/usr/local/bin/chronyc
+  lab sh -c 'mkdir -p /run/utility-stub && cd /run/utility-stub && echo -1152060 > offset && echo 377 > reach && echo 0 > selected && rm -f steps'
+}
+
+@test "saat sapması: durum ntp_senkron=no ve sapmayı gösterir" {
+  stub_on
+  run "$RUN" durum
+  [ "$status" -eq 0 ]
+  [[ "$(result)" == *" ntp_senkron=no "* && "$(result)" == *" sapma_ms=1152060000.0 secili_kaynak=no" ]]
+}
+
+@test "saat sapması: preview 'saat' planlar ve hiçbir şey adımlamaz" {
+  run "$RUN" preview --check --diff
+  [ "$status" -eq 0 ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.preview degisen=1 plan=saat" ]
+  [[ "$output" == *"apply chrony ile TEK SEFERLİK adımlayacak"* ]]
+  run lab sh -c 'test ! -e /run/utility-stub/steps && echo temiz'
+  [ "$output" = temiz ]
+}
+
+@test "saat sapması: utility_ntp_makestep=false sapmaya dokunmaz" {
+  run "$RUN" preview --check -e utility_ntp_makestep=false
+  [ "$(result)" = "SSHPOCKET_RESULT utility.preview degisen=0 plan=yok" ]
+}
+
+@test "saat sapması: apply tek seferlik makestep yapar, ikinci apply changed=0" {
+  run "$RUN" apply
+  [ "$status" -eq 0 ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.apply degisen=1 plan=saat yedek=hayir" ]
+  [[ "$output" == *"saat adımlandı"* ]]
+  run lab sh -c 'wc -l < /run/utility-stub/steps'
+  [ "$output" = 1 ]
+  run "$RUN" apply
+  [ "$(result)" = "SSHPOCKET_RESULT utility.apply degisen=0 plan=yok yedek=hayir" ]
+  [ "$(recap_changed)" = 0 ]
+  run lab sh -c 'wc -l < /run/utility-stub/steps'
+  [ "$output" = 1 ]
+  run "$RUN" durum
+  [[ "$(result)" == *" ntp_senkron=yes "* && "$(result)" == *" secili_kaynak=yes" ]]
+}
+
+@test "saat sapması: makestep düzeltmezse apply net hatayla düşer" {
+  lab sh -c 'echo -1152060 > /run/utility-stub/offset; echo 0 > /run/utility-stub/selected; printf "#!/bin/sh\ncase \"\$*\" in \"-c tracking\") echo 00000000,,0,0,0;; \"-c sources\") echo ^,?,n,2,6,377,1,-5000.0,0,0;; esac\n" > /usr/local/bin/chronyc'
+  run "$RUN" apply -e utility_ntp_step_timeout_s=4
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adimlanamadi"* ]]
+  lab rm -f /usr/local/bin/chronyc
+}
+
 teardown_file() { "$BATS_TEST_DIRNAME/lab/down.sh" --clean >&3 || true; }

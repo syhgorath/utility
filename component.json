@@ -1,6 +1,6 @@
 {
   "id": "utility",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "sshpocket_api": 1,
   "name": "Sunucu araçları: saat dilimi, locale, NTP",
   "description": "Saat dilimini, sistem dilini (LANG) ve NTP kaynaklarını (chrony drop-in) önizleyerek, yedekleyerek ve onayla yönetir. Ubuntu 26.04 ve Debian 13; Proxmox VE kapsam dışı.",
@@ -17,8 +17,8 @@
       "effects": [],
       "requires_sudo": false,
       "confirm": "none",
-      "warnings": ["Salt okunur: saat dilimi, LANG, chrony durumu ve ofsetini okur; hiçbir şeyi değiştirmez. chrony kurulu değilse ntp_servis=inactive/unknown, ofset unknown görünür."],
-      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.durum", "keys": ["timezone", "locale", "ntp_servis", "ntp_senkron", "offset_ms", "kaynak_sayisi"] }
+      "warnings": ["Salt okunur: saat dilimi, LANG, chrony durumu, ofseti ve gerçek sapmayı (seçili kaynak yoksa erişilebilir kaynakların farkı) okur; hiçbir şeyi değiştirmez. ntp_senkron=yes için chrony çalışırken seçili kaynak ve sapma <= 1 sn gerekir. chrony kurulu değilse ntp_servis=inactive/unknown, ofset ve sapma unknown görünür."],
+      "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.durum", "keys": ["timezone", "locale", "ntp_servis", "ntp_senkron", "offset_ms", "kaynak_sayisi", "sapma_ms", "secili_kaynak"] }
     },
     "preview": {
       "cmd": "ansible-playbook playbooks/preview.yml --check --diff",
@@ -27,7 +27,8 @@
       "confirm": "none",
       "warnings": [
         "Önizleme yalnızca dosya farkını ve plan adlarını gösterir: timedatectl, locale-gen, paket kurulumu ve chrony yeniden başlatması --check'te çalışmaz, gösterilmez.",
-        "Boş bırakılan utility_timezone / utility_locale / utility_ntp_servers o alana hiç dokunulmayacağı anlamına gelir."
+        "Boş bırakılan utility_timezone / utility_locale / utility_ntp_servers o alana hiç dokunulmayacağı anlamına gelir.",
+        "chrony çalışıyorsa ve saat 1 sn'den fazla sapmışsa plana 'saat' girer: apply tek seferlik adımlar. chrony bu koşuda kurulacaksa sapma önizlemede ölçülemez."
       ],
       "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.preview", "keys": ["degisen", "plan"] }
     },
@@ -42,7 +43,9 @@
         "NTP kaynakları, dağıtımın varsayılan kaynaklarının YERİNE değil yanına eklenir (sources.d/utility.sources); chrony.conf'a dokunulmaz. Değişince chrony yeniden başlatılır.",
         "Yanlış NTP kaynağının en kötü sonucu saat senkronunun kaybıdır (ssh sertifikaları, TOTP, apt 'Not live until' etkilenebilir); erişim kaybı değil.",
         "auditd açıksa saat dilimi değişimi 'time-change' kaydı üretir (beklenen). ufw giden trafiği reddediyorsa (hardening_ufw_outgoing_deny) NTP için 123/udp çıkışı gerekir.",
-        "locale-gen ve chrony kurulumu gerekirse apt ile paket kurar (locales, chrony); geri_yukle paketleri kaldırmaz."
+        "locale-gen ve chrony kurulumu gerekirse apt ile paket kurar (locales, chrony); geri_yukle paketleri kaldırmaz.",
+        "Saat 1 sn'den fazla sapmışsa (chrony çalışıyorken ölçülür) apply kaynaklar erişilebilir olunca TEK SEFERLİK `chronyc makestep` yapar (en çok 60 sn bekler; kalıcı makestep ayarı yazılmaz). Adımlama zaman sıçramasıdır: log damgaları, cron işleri, auditd 'time-change' kaydı, ssh/TOTP/sertifika geçerliliği etkilenebilir. Kapatmak için utility_ntp_makestep=false.",
+        "Saat dilimi değişince systemd-timedated yeniden başlatılır (timedatectl önbelleği eski değeri tutmasın)."
       ],
       "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.apply", "keys": ["degisen", "plan", "yedek"] }
     },
@@ -54,7 +57,8 @@
       "warnings": [
         "Yalnızca DOSYALARI geri yazar (/etc/localtime, /etc/timezone, /etc/default/locale, /etc/locale.gen, chrony conf.d ve sources.d); yedek yokken var olmayan dosyayı siler. utility_restore_from boşsa EN SON yedek kullanılır.",
         "Kurulan paketleri (chrony, locales), üretilmiş locale'leri, servis durumunu ve geçmiş log zaman damgalarını geri ALMAZ. chrony drop-in'i değiştiyse chrony yeniden başlatılır.",
-        "Yedekten sonra elle yapılan değişikliklerin üzerine yazar."
+        "Yedekten sonra elle yapılan değişikliklerin üzerine yazar.",
+        "Saat dilimi dosyaları geri yazılınca systemd-timedated yeniden başlatılır. Adımlanmış saati geri ALMAZ."
       ],
       "outputs": { "format": "keyvalue-line", "prefix": "SSHPOCKET_RESULT utility.geri_yukle", "keys": ["yedek", "geri_yuklenen", "degisen"] }
     }
@@ -63,6 +67,7 @@
     { "name": "utility_timezone", "type": "string", "default": "", "group": "Zaman", "description": "Saat dilimi (örn. Europe/Istanbul). Boş = saat dilimine dokunma. /usr/share/zoneinfo altında var olmalı." },
     { "name": "utility_locale", "type": "string", "default": "", "group": "Dil", "description": "Sistem dili: yalnızca LANG (örn. en_US.UTF-8). Boş = dokunma. LC_* yönetilmez. Gerekirse locales kurulur ve locale üretilir." },
     { "name": "utility_ntp_servers", "type": "list[string]", "default": [], "group": "NTP", "description": "NTP kaynakları (en çok 8): 'host', 'server host' ya da 'pool host'; iburst otomatik eklenir. Boş = dağıtım varsayılanı (dosya yazılmaz, chrony kurulmaz). Dağıtımın varsayılan kaynakları kalır." },
+    { "name": "utility_ntp_makestep", "type": "bool", "default": true, "group": "NTP", "description": "Saat 1 sn'den fazla sapmışsa apply chrony çalışırken TEK SEFERLİK 'chronyc makestep' yapar (kalıcı ayar yazılmaz). false = sapmaya dokunma." },
     { "name": "utility_backup", "type": "bool", "default": true, "group": "Yedek", "description": "Değiştirmeden önce /var/backups/utility/<tarih>/ altına yedek al. false = yedek alınmaz ve geri_yukle yeni değişikliği geri alamaz." },
     { "name": "utility_restore_from", "type": "string", "default": "", "group": "Yedek", "description": "geri_yukle için yedek adı (örn. 20261105T101500Z). Boş = en son yedek." }
   ]
