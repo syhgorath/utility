@@ -60,6 +60,7 @@ expect_eq "dry-run cikis 0" "0" "$rc"
 expect_contains "  plan: etiket" "$out" "git tag -a v$V"
 expect_contains "  plan: gh release create" "$out" "gh release create v$V"
 expect_contains "  plan: 6) indeks" "$out" "6) indeks: $IDX/scripts/index-publish.sh utility $V"
+expect_contains "  plan 6) satiri --yes gosterir" "$out" "--sig dist/utility-$V.tar.gz.sig --yes"
 expect_contains "  [dry-run] hicbir sey yapilmadi" "$out" "[dry-run] hiçbir şey yapılmadı"
 if (cd "$TMP/r" && git rev-parse -q --verify "refs/tags/v$V" >/dev/null); then bad "dry-run etiket OLUSTURDU"; else ok "dry-run etiket olusturmadi"; fi
 if git --git-dir="$TMP/o.git" rev-parse -q --verify "refs/tags/v$V" >/dev/null; then bad "dry-run etiketi ITTI"; else ok "dry-run etiketi itmedi"; fi
@@ -104,7 +105,7 @@ if [ -f "$FAKE_INDEX_LOG" ]; then bad "dry-run indeks betigini CALISTIRDI"; else
 rm -f "$FAKE_INDEX_LOG"; fresh; out=$(pub --yes); rc=$?
 idxcall=$(cat "$FAKE_INDEX_LOG" 2>/dev/null)
 expect_eq "indeks adimli tam kosu cikis 0" "0" "$rc"
-expect_contains "  indeks: <id> <surum> <depo> --archive --sig" "$idxcall" "index-publish utility $V sahip/depo --archive dist/utility-$V.tar.gz --sig dist/utility-$V.tar.gz.sig"
+expect_contains "  indeks: <id> <surum> <depo> --archive --sig" "$idxcall" "index-publish utility $V sahip/depo --archive dist/utility-$V.tar.gz --sig dist/utility-$V.tar.gz.sig --yes"
 expect_contains "  indeks guncellendi mesaji" "$out" "İndeks güncellendi"
 expect_not_contains "  lock-component yonergesi yok" "$out" "SİZ güncelleyin"
 if printf '%s' "$out" | awk '/ATRAP-INDEKS-CAGRILDI/ {i=NR} /✅/ {s=NR} END {exit !(s && i && i < s)}'; then ok "indeks adimi son ✅ satirindan once"; else bad "indeks adimi son ✅ satirindan SONRA ya da yok"; fi
@@ -114,6 +115,7 @@ if git --git-dir="$TMP/o.git" rev-parse -q --verify "refs/tags/v$V" >/dev/null; 
 fresh; export FAKE_INDEX_FAIL=1; out=$(pub --yes); rc=$?; unset FAKE_INDEX_FAIL
 if [ "$rc" != "0" ]; then ok "indeks hatasi cikis kodu 0 degil"; else bad "indeks hatasi yutuldu"; fi
 expect_contains "  hata: Release gecerli, betik tek basina yeniden calistirilabilir" "$out" "tek başına yeniden çalıştırılabilir"
+expect_contains "  hata mesajindaki yeniden calistirma komutu --yes icerir" "$out" "--sig dist/utility-$V.tar.gz.sig --yes"
 if [ -f "$TMP/gh.create" ]; then ok "indeks hatasinda Release zaten acilmisti"; else bad "Release yok"; fi
 echo "-- ozet UYUSMAZSA durur"
 fresh; export FAKE_DIGEST=kotu; out=$(pub --yes); rc=$?; unset FAKE_DIGEST
