@@ -73,7 +73,7 @@ echo "  2) scripts/release.sh  (paket + imza + kendi doğrulaması)"
 echo "  3) gh release create $TAG $ARCHIVE $ARCHIVE.sig --title $TAG --notes-file <CHANGELOG [$VERSION] bölümü, $(wc -l < "$NOTES" | tr -d ' ') satır>"
 echo "  4) yüklenen dosyaların SHA-256 özetini yerel dosyalarla karşılaştır"
 echo "  5) components.lock taban bilgisi için SHA-256 ve imzalayıcı satırını yazdır (bilgi; sshpocket reposuna DOKUNULMAZ)"
-echo "  6) indeks: $INDEX_PUBLISH $ID $VERSION <sahip/depo> --archive $ARCHIVE --sig $ARCHIVE.sig  (indeks deposunda yerel commit; push sizde)"
+echo "  6) indeks: $INDEX_PUBLISH $ID $VERSION <sahip/depo> --archive $ARCHIVE --sig $ARCHIVE.sig --yes  (indeks deposunda yerel commit; push sizde)"
 if [ "$DRY" = 1 ]; then echo "[dry-run] hiçbir şey yapılmadı."; exit 0; fi
 if [ "$YES" = 0 ]; then
     read -r -p "Devam edilsin mi? (etiket itilir, Release yayımlanır) [y/N] " ans </dev/tty || ans=""
@@ -102,9 +102,9 @@ for f in "$ARCHIVE" "$ARCHIVE.sig"; do
     [ -n "$got" ] || die "Release'te $(basename "$f") yok"
     [ "$got" = "$want" ] || die "$(basename "$f") özeti uyuşmuyor: Release=$got yerel=$want"
 done
-# 6) indeks: Release ve özet doğrulaması geçti. İndeks hatası Release'i geçersiz kılmaz; indeks betiği tek başına yeniden çalıştırılabilir
-if ! "$INDEX_PUBLISH" "$ID" "$VERSION" "$REPO" --archive "$ARCHIVE" --sig "$ARCHIVE.sig"; then
-    die "indeks güncellenemedi. Release $TAG YAYIMLANDI ve geçerli; index-publish.sh tek başına yeniden çalıştırılabilir: $INDEX_PUBLISH $ID $VERSION $REPO --archive $ARCHIVE --sig $ARCHIVE.sig"
+# 6) indeks: Release ve özet doğrulaması geçti. --yes: bu betiğin y/N sorusu zaten yayın onayıdır; indeks `sign` ikinci onayı etkileşimsiz pencerede düşüyordu. İndeks hatası Release'i geçersiz kılmaz; indeks betiği tek başına yeniden çalıştırılabilir
+if ! "$INDEX_PUBLISH" "$ID" "$VERSION" "$REPO" --archive "$ARCHIVE" --sig "$ARCHIVE.sig" --yes; then
+    die "indeks güncellenemedi. Release $TAG YAYIMLANDI ve geçerli; index-publish.sh tek başına yeniden çalıştırılabilir: $INDEX_PUBLISH $ID $VERSION $REPO --archive $ARCHIVE --sig $ARCHIVE.sig --yes"
 fi
 echo ""
 echo "✅ $TAG yayımlandı ve yüklenen dosyaların özeti yerelle aynı."

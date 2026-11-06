@@ -4,6 +4,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+### Düzeltildi
+- `scripts/release-publish.sh`: indeks adımı `index-publish.sh` çağrısına `--yes` geçirir (betiğin kendi y/N sorusu zaten yayın onayıdır; indeks `sign` ikinci onayı etkileşimsiz pencerede "iptal edildi" ile düşüyordu, v0.1.2 yayınında yaşandı). `--dry-run` planı ve hata mesajındaki yeniden çalıştırma komutu da `--yes` gösterir. Paket içeriği değişmedi (sürüm gerektirmez). Gerçek `index-publish.sh` ile DENENMEDİ (atrap betik, mutasyon testiyle doğrulandı).
+
 ## [0.1.2] - 2026-11-07
 
 ### Eklendi
