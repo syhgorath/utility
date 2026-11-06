@@ -2,6 +2,11 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
+## [Unreleased]
+
+### Değişti
+- `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra paket indeksini günceller (`sshpocket-index/scripts/index-publish.sh`, `SSHPOCKET_INDEX_DIR`); betik yoksa etiketten önce durur; indeks hatası yayımlanmış Release'i geçersiz kılmaz. Normal sürümde `components.lock` PR'ı gerekmez. Paket içeriği değişmedi (sürüm gerektirmez). Gerçek `index-publish.sh` ile DENENMEDİ (atrap betikle test edildi).
+
 ## [0.1.1] - 2026-11-06
 
 ### Eklendi

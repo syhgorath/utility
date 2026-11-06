@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # release-publish.sh (linux-hardening'den uyarlandı) - release.sh'in ÖNCESİNİ ve SONRASINI yapar (bakımcı aracı, yerelde çalışır): kontroller, etiket, paket+imza (release.sh), GitHub Release, yüklenen
-# dosyaların özet doğrulaması ve components.lock'a yazılacak bilgilerin yazdırılması.
+# dosyaların özet doğrulaması, paket indeksine yazma (sshpocket-index/scripts/index-publish.sh) ve components.lock taban bilgisinin yazdırılması.
 #
 #   PAKET_SIGNING_KEY=~/.ssh/<anahtar> scripts/release-publish.sh --dry-run     # ne yapacağını gösterir, HİÇBİR ŞEY yapmaz
 #   PAKET_SIGNING_KEY=~/.ssh/<anahtar> scripts/release-publish.sh                # onay ister, sonra etiketler, imzalar, Release açar
 #   --yes (onay sorma), --no-ci-check (main CI kontrolünü atla: önerilmez)
 #
-# Özel imza anahtarı ASLA repoya, CI'a veya sohbete konmaz; yalnızca release.sh'e PAKET_SIGNING_KEY ile aktarılır. components.lock sshpocket reposundadır: bu betik ona DOKUNMAZ,
-# yalnızca yazılacak SHA-256 ve imzalayıcı satırını yazdırır. Ayrıntı: README.md "Sürüm yayını".
+# Özel imza anahtarı ASLA repoya, CI'a veya sohbete konmaz; yalnızca release.sh'e (ve indeks betiğine) PAKET_SIGNING_KEY ile aktarılır. components.lock sshpocket reposundadır: bu betik ona DOKUNMAZ,
+# yalnızca SHA-256 ve imzalayıcı satırını bilgi olarak yazdırır. İndeks betiği: $SSHPOCKET_INDEX_DIR (varsayılan ~/Developer/sshpocket-index). Ayrıntı: README.md "Sürüm yayını".
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -24,6 +24,7 @@ for a in "$@"; do
 done
 command -v git >/dev/null || die "git yok"
 command -v gh >/dev/null || die "gh (GitHub CLI) yok"
+INDEX_PUBLISH="${SSHPOCKET_INDEX_DIR:-$HOME/Developer/sshpocket-index}/scripts/index-publish.sh"
 
 VERSION=$(tr -d '[:space:]' < VERSION)
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "VERSION geçersiz: '$VERSION'"
@@ -62,13 +63,17 @@ trap 'rm -f "$NOTES"' EXIT
 awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md | sed '/./,$!d' > "$NOTES"
 [ -s "$NOTES" ] || die "CHANGELOG.md [$VERSION] bölümü boş"
 
+# İndeks betiği yoksa etiket/Release'ten ÖNCE dur (Release'siz-indeksli ya da indeksiz kalmasın)
+[ -x "$INDEX_PUBLISH" ] || die "indeks betiği yok: $INDEX_PUBLISH (SSHPOCKET_INDEX_DIR ile sshpocket-index deposunun yerini verin)"
+
 echo "Sürüm: $TAG (commit ${HEAD_SHA:0:7})"
 echo "Yapılacaklar:"
 echo "  1) git tag -a $TAG -m \"$ID $VERSION\" && git push origin $TAG"
 echo "  2) scripts/release.sh  (paket + imza + kendi doğrulaması)"
 echo "  3) gh release create $TAG $ARCHIVE $ARCHIVE.sig --title $TAG --notes-file <CHANGELOG [$VERSION] bölümü, $(wc -l < "$NOTES" | tr -d ' ') satır>"
 echo "  4) yüklenen dosyaların SHA-256 özetini yerel dosyalarla karşılaştır"
-echo "  5) components.lock için SHA-256 ve imzalayıcı satırını yazdır (sshpocket reposuna DOKUNULMAZ)"
+echo "  5) components.lock taban bilgisi için SHA-256 ve imzalayıcı satırını yazdır (bilgi; sshpocket reposuna DOKUNULMAZ)"
+echo "  6) indeks: $INDEX_PUBLISH $ID $VERSION <sahip/depo> --archive $ARCHIVE --sig $ARCHIVE.sig  (indeks deposunda yerel commit; push sizde)"
 if [ "$DRY" = 1 ]; then echo "[dry-run] hiçbir şey yapılmadı."; exit 0; fi
 if [ "$YES" = 0 ]; then
     read -r -p "Devam edilsin mi? (etiket itilir, Release yayımlanır) [y/N] " ans </dev/tty || ans=""
@@ -97,7 +102,12 @@ for f in "$ARCHIVE" "$ARCHIVE.sig"; do
     [ -n "$got" ] || die "Release'te $(basename "$f") yok"
     [ "$got" = "$want" ] || die "$(basename "$f") özeti uyuşmuyor: Release=$got yerel=$want"
 done
+# 6) indeks: Release ve özet doğrulaması geçti. İndeks hatası Release'i geçersiz kılmaz; indeks betiği tek başına yeniden çalıştırılabilir
+if ! "$INDEX_PUBLISH" "$ID" "$VERSION" "$REPO" --archive "$ARCHIVE" --sig "$ARCHIVE.sig"; then
+    die "indeks güncellenemedi. Release $TAG YAYIMLANDI ve geçerli; index-publish.sh tek başına yeniden çalıştırılabilir: $INDEX_PUBLISH $ID $VERSION $REPO --archive $ARCHIVE --sig $ARCHIVE.sig"
+fi
 echo ""
 echo "✅ $TAG yayımlandı ve yüklenen dosyaların özeti yerelle aynı."
-echo "components.lock için (sshpocket reposunda SİZ güncelleyin): sürüm $VERSION, SHA-256 $(SUMOF "$ARCHIVE")"
+echo "İndeks güncellendi (indeks deposunda yerel commit; push sizde). components.lock güncellemesi normal sürümde GEREKMEZ, indeks halleder."
+echo "components.lock taban bilgisi (yalnızca taban yükseltmek isterseniz, sshpocket reposunda): sürüm $VERSION, SHA-256 $(SUMOF "$ARCHIVE")"
 grep -E '^  .* namespaces=' "$OUT" || true
