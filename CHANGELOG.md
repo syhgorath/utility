@@ -2,9 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
-## [Unreleased]
-
-Sürüm numarası bekliyor (öneri: 0.2.0: yeni değişken, yeni `durum` alanları, saat adımlama davranışı).
+## [0.1.1] - 2026-11-06
 
 ### Eklendi
 - **Saat sapması düzeltme.** chrony çalışırken saat 1 sn'den fazla sapmışsa `preview` plana `saat` ekler ve nedenini yazar; `apply` kaynaklar erişilebilir olunca (en çok 60 sn bekler) TEK SEFERLİK `chronyc makestep` yapar ve eşik altına inmesini doğrular. Kalıcı `makestep` ayarı YAZILMAZ. Ölçülemezse (erişilebilir kaynak yok) uyarır; ölçüldü ama düzelmediyse hata verir. Kapatmak için `utility_ntp_makestep=false` (varsayılan `true`). Uyarı metinleri adımlamanın etkisini (log/cron/auditd `time-change`, ssh/TOTP) söyler.

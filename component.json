@@ -1,6 +1,6 @@
 {
   "id": "utility",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "sshpocket_api": 1,
   "name": "Sunucu araçları: saat dilimi, locale, NTP",
   "description": "Saat dilimini, sistem dilini (LANG) ve NTP kaynaklarını (chrony drop-in) önizleyerek, yedekleyerek ve onayla yönetir. Ubuntu 26.04 ve Debian 13; Proxmox VE kapsam dışı.",
