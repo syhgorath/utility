@@ -4,7 +4,7 @@
 #   1) VERSION, component.json "version" ve CHANGELOG.md'yi güncelleyin; commit + etiket:  git tag -a vX.Y.Z -m "..."
 #   2) PAKET_SIGNING_KEY=~/.ssh/<ozel_anahtar> scripts/release.sh
 #   3) dist/<id>-<sürüm>.tar.gz ve .tar.gz.sig dosyalarını GitHub'da vX.Y.Z Release'ine yükleyin.
-#   4) sshpocket reposuna kilit satırı ekleyen PR: scripts/lock-component.sh <id> <sürüm> --repo <sahip/depo> --write
+#   4) paket indeksi: sshpocket-index/scripts/index-publish.sh (release-publish.sh çağırır). components.lock yalnızca taban yükseltmek için.
 #
 # Güvenceler (yayından ÖNCE): temiz çalışma alanı, etiket = HEAD, CHANGELOG başlığı, tek kök dizin <id>-<sürüm>/, VERSION = component.json = etiket,
 # geliştirme dosyası yok, sözleşme uyum denetimi (❌ varsa durur), imza yayından önce kendi public anahtarıyla doğrulanır.
@@ -63,4 +63,4 @@ ssh-keygen -Y verify -f "$SIGNERS" -I "$SIGNER_ID" -n "$NS" -s "$ARCHIVE.sig" < 
 echo "✅ $ARCHIVE ve $ARCHIVE.sig hazır"
 echo "components.lock imzalayıcı satırı (kilit PR'ında linux-hardening ile aynı olmalı):"
 echo "  $SIGNER_ID namespaces=\"$NS\" $PUB"
-echo "   Sonraki adım: dosyaları GitHub'da $TAG Release'ine yükleyin, sonra sshpocket'te scripts/lock-component.sh ile kilide yazın."
+echo "   Sonraki adım: dosyaları GitHub'da $TAG Release'ine yükleyin, sonra indeks betiğini çalıştırın (scripts/release-publish.sh bunu sizin için yapar)."

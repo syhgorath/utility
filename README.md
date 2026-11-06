@@ -92,7 +92,7 @@ test/e2e/lab/up.sh && test/e2e/lab/run.sh preview -e utility_timezone=Europe/Ist
 ```bash
 PAKET_SIGNING_KEY=~/.ssh/<anahtar> scripts/release-publish.sh --dry-run   # ne yapacağını gösterir, hiçbir şey yapmaz
 ```
-İmzalayıcı `linux-hardening` ile aynıdır (ad alanı `sshpocket-component`). Kilit satırını sshpocket reposunda `scripts/lock-component.sh utility <sürüm> --repo syhgorath/utility` ile ekleyin.
+İmzalayıcı `linux-hardening` ile aynıdır (ad alanı `sshpocket-component`). Release sonrası `scripts/release-publish.sh` paket indeksini de günceller (`$SSHPOCKET_INDEX_DIR/scripts/index-publish.sh`, varsayılan `~/Developer/sshpocket-index`; indeks deposunda yerel commit, push sizde). Normal sürümde `components.lock` PR'ı GEREKMEZ; indeks adımı başarısız olursa Release geçerli kalır ve `index-publish.sh utility <sürüm> syhgorath/utility --archive dist/… --sig dist/….sig` tek başına yeniden çalıştırılır.
 
 ## Geliştirme
 Şablon: [sshpocket-paket-sablonu](https://github.com/syhgorath/sshpocket-paket-sablonu). Standart: sshpocket `docs/package-standard.md`. `tools/validate/` vendored kopyadır (elle düzenlemeyin; `tools/sync-validator.sh`).

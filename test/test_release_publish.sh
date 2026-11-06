@@ -41,7 +41,17 @@ fresh() { # temiz depo + yerel bare origin (main, takip ediyor)
     && git -c user.email=t@t -c user.name=t commit -qm base \
     && git remote add origin "$TMP/o.git" && git push -q -u origin main)
 }
-pub() { (cd "$TMP/r" && PATH="$BIN:$PATH" PAKET_SIGNING_KEY="$KEY" bash scripts/release-publish.sh "$@" 2>&1); }
+# Atrap indeks betiği (gerçeği sshpocket-index deposunda): çağrıları index.log'a yazar; FAKE_INDEX_FAIL=1 ise hata verir
+IDX="$TMP/idx"; mkdir -p "$IDX/scripts"
+cat > "$IDX/scripts/index-publish.sh" <<'IDXS'
+#!/usr/bin/env bash
+echo "index-publish $*" >> "$FAKE_INDEX_LOG"; echo "ATRAP-INDEKS-CAGRILDI"
+[ "${FAKE_INDEX_FAIL:-0}" = 1 ] && { echo "indeks hatasi (atrap)" >&2; exit 1; }
+exit 0
+IDXS
+chmod +x "$IDX/scripts/index-publish.sh"
+export FAKE_INDEX_LOG="$TMP/index.log"
+pub() { (cd "$TMP/r" && PATH="$BIN:$PATH" SSHPOCKET_INDEX_DIR="${IDX_DIR:-$IDX}" PAKET_SIGNING_KEY="$KEY" bash scripts/release-publish.sh "$@" 2>&1); }
 expect_fail() { if printf '%s' "$2" | grep -q '^HATA:'; then ok "$1 reddedildi"; else bad "$1 REDDEDILMEDI: $2"; fi; }
 
 echo "-- dry-run: ne yapacagini gosterir, HICBIR SEY yapmaz"
@@ -49,6 +59,7 @@ fresh; out=$(pub --dry-run); rc=$?
 expect_eq "dry-run cikis 0" "0" "$rc"
 expect_contains "  plan: etiket" "$out" "git tag -a v$V"
 expect_contains "  plan: gh release create" "$out" "gh release create v$V"
+expect_contains "  plan: 6) indeks" "$out" "6) indeks: $IDX/scripts/index-publish.sh utility $V"
 expect_contains "  [dry-run] hicbir sey yapilmadi" "$out" "[dry-run] hiçbir şey yapılmadı"
 if (cd "$TMP/r" && git rev-parse -q --verify "refs/tags/v$V" >/dev/null); then bad "dry-run etiket OLUSTURDU"; else ok "dry-run etiket olusturmadi"; fi
 if git --git-dir="$TMP/o.git" rev-parse -q --verify "refs/tags/v$V" >/dev/null; then bad "dry-run etiketi ITTI"; else ok "dry-run etiketi itmedi"; fi
@@ -87,6 +98,23 @@ expect_contains "  ozet dogrulandi mesaji" "$out" "yüklenen dosyaların özeti 
 expect_contains "  components.lock bilgisi: SHA-256" "$out" "SHA-256"
 expect_contains "  components.lock bilgisi: imzalayici satiri" "$out" 'namespaces="sshpocket-component"'
 expect_not_contains "  sshpocket reposuna dokunmaz (components.lock yazilmaz)" "$out" "components.lock'a yazıldı"
+echo "-- indeks adimi"
+rm -f "$FAKE_INDEX_LOG"; fresh; out=$(pub --dry-run)
+if [ -f "$FAKE_INDEX_LOG" ]; then bad "dry-run indeks betigini CALISTIRDI"; else ok "dry-run indeks betigini calistirmadi"; fi
+rm -f "$FAKE_INDEX_LOG"; fresh; out=$(pub --yes); rc=$?
+idxcall=$(cat "$FAKE_INDEX_LOG" 2>/dev/null)
+expect_eq "indeks adimli tam kosu cikis 0" "0" "$rc"
+expect_contains "  indeks: <id> <surum> <depo> --archive --sig" "$idxcall" "index-publish utility $V sahip/depo --archive dist/utility-$V.tar.gz --sig dist/utility-$V.tar.gz.sig"
+expect_contains "  indeks guncellendi mesaji" "$out" "İndeks güncellendi"
+expect_not_contains "  lock-component yonergesi yok" "$out" "SİZ güncelleyin"
+if printf '%s' "$out" | awk '/ATRAP-INDEKS-CAGRILDI/ {i=NR} /✅/ {s=NR} END {exit !(s && i && i < s)}'; then ok "indeks adimi son ✅ satirindan once"; else bad "indeks adimi son ✅ satirindan SONRA ya da yok"; fi
+fresh; IDX_DIR="$TMP/yok" ; out=$(pub --yes); rc=$?; unset IDX_DIR
+if [ "$rc" != "0" ] && printf '%s' "$out" | grep -q "indeks betiği yok"; then ok "indeks betigi yoksa reddedildi"; else bad "indeks betigi yokken devam etti (rc=$rc): $out"; fi
+if git --git-dir="$TMP/o.git" rev-parse -q --verify "refs/tags/v$V" >/dev/null; then bad "indeks betigi yokken etiket itildi"; else ok "indeks betigi yokken etiket itilmedi (Release'ten once durdu)"; fi
+fresh; export FAKE_INDEX_FAIL=1; out=$(pub --yes); rc=$?; unset FAKE_INDEX_FAIL
+if [ "$rc" != "0" ]; then ok "indeks hatasi cikis kodu 0 degil"; else bad "indeks hatasi yutuldu"; fi
+expect_contains "  hata: Release gecerli, betik tek basina yeniden calistirilabilir" "$out" "tek başına yeniden çalıştırılabilir"
+if [ -f "$TMP/gh.create" ]; then ok "indeks hatasinda Release zaten acilmisti"; else bad "Release yok"; fi
 echo "-- ozet UYUSMAZSA durur"
 fresh; export FAKE_DIGEST=kotu; out=$(pub --yes); rc=$?; unset FAKE_DIGEST
 if [ "$rc" != "0" ] && printf '%s' "$out" | grep -q "özeti uyuşmuyor"; then ok "uyusmayan ozet reddedildi"; else bad "uyusmayan ozet KABUL EDILDI (rc=$rc): $out"; fi
