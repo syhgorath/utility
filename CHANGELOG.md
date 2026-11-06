@@ -4,12 +4,18 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-07
+
 ### Eklendi
 - **Kontrol makinesi saatiyle bağımsız karşılaştırma.** Gerçek VM bulgusu: snapshot/rollback sonrası sunucu saati 13 gün geride iken `chronyc tracking` ("0.000000155 seconds slow", Ref time sunucunun kendi yanlış saatinde) ve `sources` sapmayı göstermedi; 0.1.1 `durum` `ntp_senkron=yes sapma_ms=0.0` dedi, plan `saat` içermedi. Artık sunucunun `date +%s` değeri Ansible kontrol makinesininkiyle karşılaştırılır (chrony'den bağımsız): fark > 300 sn ise `durum` `saat_sapma_kontrolcuye_gore_sn=N` verir ve `ntp_senkron=no` olur, `preview`/`apply` plana `saat` ekler ve uyarır. `apply` önce chrony'yi yeniden başlatıp (bayat ölçümü atar) `makestep` dener; fark sürerse ve `utility_ntp_clock_from_controller=true` ise (varsayılan `false`, açık seçenek) `date -s` ile kontrol makinesinin saatine ayarlar. Chrony yeniden başlatma sonrası taze kaynakla saati doğruluyorsa kontrolcü saatine DOKUNULMAZ (kontrol makinesi yanlış olabilir) ve uyarılır.
 - LAB testleri 21-27 (SAHTE `date` ve `chronyc`).
 
+- Yeni değişken `utility_ntp_clock_from_controller` (bool, varsayılan `false`), yeni `durum` anahtarı `saat_sapma_kontrolcuye_gore_sn`.
+
 ### Denenmedi
-- Gerçek VM'de: chrony yeniden başlatma + `makestep` ile bayat durumun düzelmesi ve `date -s` yolu. Bayat chrony nedeni varsayımdır (aşağıya bakın), LAB'da gerçek chronyd yok.
+- Gerçek VM'de chrony yeniden başlatma + `makestep` ile bayat durumun düzelmesi ve `date -s` yolu DENENMEDİ (LAB'da gerçek chronyd ve saat adımlama yok; testler SAHTE `date`/`chronyc` ile yalnızca playbook akışını sınar). RTC (`hwclock`) senkronu da ele alınmadı.
+- Bayat chrony nedeni (snapshot/rollback sonrası chronyd'nin eski ama içten tutarlı durumu) bir VARSAYIMDIR; yeniden üretilemedi.
+- Kontrol makinesinin saati yanlışsa karşılaştırma yanlış uyarı verir (varsayılan akış yalnız chrony'yi yeniden başlatıp `makestep` dener, saati kontrolcüye ayarlamaz; `date -s` yalnız açık seçenekle).
 
 ### Değişti
 - `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra paket indeksini günceller (`sshpocket-index/scripts/index-publish.sh`, `SSHPOCKET_INDEX_DIR`); betik yoksa etiketten önce durur; indeks hatası yayımlanmış Release'i geçersiz kılmaz. Normal sürümde `components.lock` PR'ı gerekmez. Paket içeriği değişmedi (sürüm gerektirmez). Gerçek `index-publish.sh` ile DENENMEDİ (atrap betikle test edildi).
