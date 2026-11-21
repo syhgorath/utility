@@ -149,6 +149,14 @@
           "sapma_ms",
           "secili_kaynak",
           "saat_sapma_kontrolcuye_gore_sn",
+          "ntp_kaynak_1",
+          "ntp_kaynak_2",
+          "ntp_kaynak_3",
+          "ntp_kaynak_4",
+          "ntp_kaynak_5",
+          "ntp_kaynak_6",
+          "ntp_kaynak_7",
+          "ntp_kaynak_8",
           "yonetilen_kaynak",
           "proxmox"
         ]

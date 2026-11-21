@@ -22,7 +22,7 @@ Sunucu ayarları (eski `utility`; eylem adları, anahtarlar ve davranış **değ
 | `preview` | salt okunur (`--check --diff`) | – | Saat dilimi/locale/NTP planı: `degisen=<N> plan=…` |
 | `apply` | `installs-package`, `changes-config` | `yes-no`, `preview` ön koşul | Önce yedek, sonra saat dilimi + locale + NTP + saat adımlama |
 | `geri_yukle` | `changes-config` | `yes-no` | Yedekten dosyaları geri yazar |
-| `ntp_durum` | salt okunur, sudo yok | – | **Yeni.** `durum`un NTP kısmının ayrıntılısı: `hizmetler=` (etkin zaman hizmetleri: chrony, systemd-timesyncd, ntp, ntpsec, ntpd-rs; yoksa `yok`), `yonetilen_kaynak=` (utility.sources satırı), `proxmox=evet\|hayir` |
+| `ntp_durum` | salt okunur, sudo yok | – | **Yeni.** `durum`un NTP kısmının ayrıntılısı: `hizmetler=` (etkin zaman hizmetleri: chrony, systemd-timesyncd, ntp, ntpsec, ntpd-rs; yoksa `yok`), `ntp_kaynak_1..8=` (utility.sources'taki gerçek host adları; yalnız host, kullanılmayan anahtar yazılmaz), `yonetilen_kaynak=` (utility.sources satırı sayısı), `proxmox=evet\|hayir` |
 | `ntp_ayarla` | `installs-package`, `changes-config` | `yes-no`, `preview` ön koşul | **Yeni.** Yalnızca NTP: chrony kurar, `utility_ntp_servers` kaynaklarını drop-in'e yazar, gerekirse tek seferlik saat adımlar; **saat dilimi ve locale'a dokunmaz**. Yedek alır (`geri_yukle` geri alır). Proxmox'ta `--check` dahil reddedilir |
 
 Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `utility.*`, `durum`/`preview` kurulum karşılıkları yeniden adlandırıldı):
