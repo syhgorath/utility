@@ -1,6 +1,6 @@
 {
   "id": "utility",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "sshpocket_api": 1,
   "name": "Sunucu araçları: saat dilimi, locale, NTP; Docker, nginx, MariaDB, Redis kurulumu",
   "description": "Saat dilimini, sistem dilini (LANG) ve NTP kaynaklarını (chrony drop-in) yönetir; Docker taban, nginx, MariaDB ve Redis kurar (native ya da Docker modunda). Hepsi önizleme, yedek/sürüm sabitleme ve onayla; veri silinmez. Ubuntu 26.04 ve Debian 13 (kurulum eylemleri yalnız Ubuntu 26.04'te denendi); Proxmox VE kapsam dışı.",

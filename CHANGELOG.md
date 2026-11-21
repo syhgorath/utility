@@ -4,6 +4,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-21
+
 ### Eklendi
 - `ntp_durum` artık `utility.sources`'taki **gerçek sunucu listesini** de bildirir: `ntp_kaynak_1 … ntp_kaynak_8` (yalnız host adı; `server`/`pool` öneki ve `iburst` yok; kullanılmayan anahtar yazılmaz). Sonuç satırı değeri ≤64 karakter olup `/`, boşluk ve virgül taşıyamadığı için her kaynak ayrı anahtardır (en çok 8; `outputs.keys` 10 → 18). Amaç: KeyLab'ın ayar kartında "istenen" ile "sunucudaki gerçek" NTP listesini yan yana göstermek (sapma). Mevcut anahtarlar ve sıraları değişmedi (yeni anahtarlar `yonetilen_kaynak`'tan önce eklendi). `lab-utility.bats`'a doğrulama eklendi.
 
@@ -11,11 +13,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 - `release-publish.sh` 6) indeks adımı `index-publish.sh`'e `--yes` geçirir (betiğin başındaki y/N zaten yayın onayı; ikinci onay etkileşimsiz pencerede düşüyordu). Yeniden çalıştırma komutu ve `--dry-run` planı da `--yes` gösterir. Gerçek `index-publish.sh` ile **denenmedi**.
 
 ### Değişti
-- `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra imzalı paket indeksini günceller (`SSHPOCKET_INDEX_DIR/scripts/index-publish.sh`, `--dry-run` listesinde 6. adım); indeks hatası yayımlanmış Release'i geçersiz kılmaz, betik tek başına yeniden çalıştırılabilir. Normal sürümde `components.lock` PR'ı gerekmez. Yayın betiği değişikliği; paket sürümü değişmez. `index-publish.sh` henüz yok: testler sahte betikle yapıldı, gerçek betikle **denenmedi**.
+- `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra imzalı paket indeksini günceller (`SSHPOCKET_INDEX_DIR/scripts/index-publish.sh`, `--dry-run` listesinde 6. adım); indeks hatası yayımlanmış Release'i geçersiz kılmaz, betik tek başına yeniden çalıştırılabilir. Normal sürümde `components.lock` PR'ı gerekmez. Yayın betiği değişikliği; paket eylemleri değişmez. `index-publish.sh` henüz yok: testler sahte betikle yapıldı, gerçek betikle **denenmedi**.
 
-## [0.2.0] - yayın öncesi
+## [0.2.0] - 2026-11-15
 
-Birleştirme sürümü: eski `utility` paketi (saat dilimi, LANG, NTP; v0.1.0–v0.1.2, geçmişi [docs/utility-gecmis.md](docs/utility-gecmis.md)) bu pakete taşındı ve paket kimliği **`utility`** oldu (repo adı henüz `kurulum`). **Yayınlanmadı**; etiket, Release ve imza kullanıcıdadır.
+Birleştirme sürümü: eski `utility` paketi (saat dilimi, LANG, NTP; v0.1.0–v0.1.2, geçmişi [docs/utility-gecmis.md](docs/utility-gecmis.md)) bu pakete taşındı ve paket kimliği **`utility`** oldu (repo adı henüz `kurulum`). Yayınlandı (2026-11-15).
 
 ### Değişti (UYUMSUZ: KeyLab/sshpocket tarafı uyarlanmalı)
 - Paket kimliği `kurulum` → `utility`; arşiv `utility-0.2.0.tar.gz`. Sonuç satırı önekleri `utility.*`: kurulum eylemlerinin çıktısı artık `SSHPOCKET_RESULT utility.kur …` (eskiden `kurulum.kur`). `inventory_group` `utility` (eskiden `kurulum`).
