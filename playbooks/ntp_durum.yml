@@ -1,6 +1,6 @@
 # Salt okunur NTP durumu (utility/durum'un NTP kısmının ayrıntılı hali; durum eylemi DEĞİŞMEDİ, anahtarları bozulmaz). Hiçbir şey değiştirmez, sudo gerektirmez.
 # Ek bilgi: hangi zaman hizmetleri etkin (chrony/systemd-timesyncd/ntp/ntpsec/ntpd-rs), utility.sources kaynak sayısı, Proxmox tespiti (yalnız okur; ntp_ayarla Proxmox'ta reddeder).
-# Sonuç satırı: SSHPOCKET_RESULT utility.ntp_durum hizmetler=… ntp_servis=… ntp_senkron=… offset_ms=… kaynak_sayisi=… sapma_ms=… secili_kaynak=… saat_sapma_kontrolcuye_gore_sn=… yonetilen_kaynak=<N> proxmox=evet|hayir
+# Sonuç satırı: SSHPOCKET_RESULT utility.ntp_durum hizmetler=… ntp_servis=… ntp_senkron=… offset_ms=… kaynak_sayisi=… sapma_ms=… secili_kaynak=… saat_sapma_kontrolcuye_gore_sn=… [ntp_kaynak_1..8=<host>] yonetilen_kaynak=<N> proxmox=evet|hayir
 - name: utility NTP durumu (salt okunur)
   hosts: utility
   gather_facts: false
@@ -70,6 +70,17 @@
       failed_when: false
       check_mode: false
 
+    # utility.sources'taki host adları (ayar şeması: sunucudaki gerçek NTP listesi). Sonuç satırı değeri ≤64 karakterdir ve '/', boşluk, virgül taşıyamaz, bu yüzden
+    # her kaynak AYRI anahtarla bildirilir (ntp_kaynak_1..8); kullanılmayan anahtar hiç yazılmaz. 'server X'/'pool X' önekleri ve 'iburst' atılır, yalnız host adı kalır.
+    - name: List sources managed by utility
+      ansible.builtin.shell: set -o pipefail; awk '/^(server|pool) /{print $2}' /etc/chrony/sources.d/utility.sources 2>/dev/null | head -n 8 || true
+      args:
+        executable: /bin/bash
+      register: utility_d_kaynaklar
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
     - name: Detect Proxmox VE (read only)
       ansible.builtin.stat:
         path: "{{ item }}"
@@ -94,6 +105,7 @@
           {{ (utility_d_sync.stdout | default('') | trim == 'yes') and not (utility_ctrl_skew_big | bool) and
              (not (utility_d_clock.up | default(false)) or
               (utility_d_clock.selected | default(false) and utility_d_clock.drift_s | default(none) is not none and utility_d_clock.drift_s | float <= 1.0)) }}
+        utility_d_hosts: "{{ (utility_d_kaynaklar.stdout_lines | default([])) | map('trim') | reject('equalto', '') | map('regex_replace', '[^A-Za-z0-9_.:+-]', '_') | map('truncate', 64, True, '') | list }}"
         utility_d_offset: >-
           {{ ((utility_d_tracking.stdout.split(',')[4] | float * 1000) | round(1)) if utility_d_tracking.rc == 0 and utility_d_tracking.stdout.split(',') | length > 4 else 'unknown' }}
       ansible.builtin.debug:
@@ -107,5 +119,13 @@
           sapma_ms={{ ((utility_d_clock.drift_s | float * 1000) | round(1)) if utility_d_clock.drift_s | default(none) is not none else 'unknown' }}
           secili_kaynak={{ 'yes' if utility_d_clock.selected | default(false) else 'no' }}
           saat_sapma_kontrolcuye_gore_sn={{ utility_ctrl_skew_s if utility_ctrl_skew_s | string != '' else 'unknown' }}
+          {{ ('ntp_kaynak_1=' ~ utility_d_hosts[0]) if utility_d_hosts | length > 0 else '' }}
+          {{ ('ntp_kaynak_2=' ~ utility_d_hosts[1]) if utility_d_hosts | length > 1 else '' }}
+          {{ ('ntp_kaynak_3=' ~ utility_d_hosts[2]) if utility_d_hosts | length > 2 else '' }}
+          {{ ('ntp_kaynak_4=' ~ utility_d_hosts[3]) if utility_d_hosts | length > 3 else '' }}
+          {{ ('ntp_kaynak_5=' ~ utility_d_hosts[4]) if utility_d_hosts | length > 4 else '' }}
+          {{ ('ntp_kaynak_6=' ~ utility_d_hosts[5]) if utility_d_hosts | length > 5 else '' }}
+          {{ ('ntp_kaynak_7=' ~ utility_d_hosts[6]) if utility_d_hosts | length > 6 else '' }}
+          {{ ('ntp_kaynak_8=' ~ utility_d_hosts[7]) if utility_d_hosts | length > 7 else '' }}
           yonetilen_kaynak={{ (utility_d_yonetilen.stdout | default('0') | trim) if (utility_d_yonetilen.stdout | default('') | trim) is match('^[0-9]+$') else 0 }}
           proxmox={{ 'evet' if utility_d_pve.results | selectattr('stat.exists') | list | length > 0 else 'hayir' }}

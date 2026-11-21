@@ -4,6 +4,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+### Eklendi
+- `ntp_durum` artık `utility.sources`'taki **gerçek sunucu listesini** de bildirir: `ntp_kaynak_1 … ntp_kaynak_8` (yalnız host adı; `server`/`pool` öneki ve `iburst` yok; kullanılmayan anahtar yazılmaz). Sonuç satırı değeri ≤64 karakter olup `/`, boşluk ve virgül taşıyamadığı için her kaynak ayrı anahtardır (en çok 8; `outputs.keys` 10 → 18). Amaç: KeyLab'ın ayar kartında "istenen" ile "sunucudaki gerçek" NTP listesini yan yana göstermek (sapma). Mevcut anahtarlar ve sıraları değişmedi (yeni anahtarlar `yonetilen_kaynak`'tan önce eklendi). `lab-utility.bats`'a doğrulama eklendi.
+
 ### Düzeltilen
 - `release-publish.sh` 6) indeks adımı `index-publish.sh`'e `--yes` geçirir (betiğin başındaki y/N zaten yayın onayı; ikinci onay etkileşimsiz pencerede düşüyordu). Yeniden çalıştırma komutu ve `--dry-run` planı da `--yes` gösterir. Gerçek `index-publish.sh` ile **denenmedi**.
 

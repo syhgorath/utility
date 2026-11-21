@@ -164,6 +164,7 @@ v2() { cat "$BATS_FILE_TMPDIR/v2path"; }
   [ "$(recap_changed)" = 0 ]
   [[ "$(result)" == "SSHPOCKET_RESULT utility.ntp_durum hizmetler="* ]]
   [[ "$(result)" == *" ntp_servis="*" ntp_senkron="*" offset_ms="*" kaynak_sayisi="*" sapma_ms="*" secili_kaynak="*" saat_sapma_kontrolcuye_gore_sn="*" yonetilen_kaynak=0 proxmox=hayir" ]]
+  [[ "$(result)" != *" ntp_kaynak_"* ]]   # yönetilen kaynak yokken ntp_kaynak_N anahtarı yazılmaz
 }
 
 @test "ntp_ayarla: yalnız NTP uygulanır (saat dilimi ve locale'a DOKUNMAZ), yedek alınır; ikinci koşu changed=0" {
@@ -184,6 +185,15 @@ v2() { cat "$BATS_FILE_TMPDIR/v2path"; }
   run "$RUN" ntp_durum
   [ "$status" -eq 0 ]
   [[ "$(result)" == *" yonetilen_kaynak=2 proxmox=hayir" ]]
+}
+
+# ayar şeması (docs/ayar-semasi-taslak.md): sunucudaki GERÇEK liste ntp_kaynak_N anahtarlarıyla bildirilir (sonuç satırı değeri ≤64 karakter, '/', boşluk, virgül yok → her kaynak ayrı anahtar)
+@test "ntp_durum: yönetilen kaynakların host adlarını ntp_kaynak_N anahtarlarıyla bildirir (öneksiz, iburst'süz)" {
+  run "$RUN" ntp_durum
+  [ "$status" -eq 0 ]
+  [[ "$(result)" == *" ntp_kaynak_1=2.pool.ntp.org ntp_kaynak_2=time.cloudflare.com "* ]]
+  [[ "$(result)" != *" ntp_kaynak_3="* ]]
+  [[ "$(result)" != *iburst* && "$(result)" != *"server"*"ntp_kaynak"* ]]
 }
 
 @test "ntp_ayarla: Proxmox VE'de reddedilir, ntp_durum yalnız okur ve proxmox=evet der" {
