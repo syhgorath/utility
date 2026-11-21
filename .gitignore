@@ -3,3 +3,6 @@ dist/
 *.pyc
 __pycache__/
 .DS_Store
+
+# Yerel MCP ayarı (GitArc vb.); depoya girmez
+.mcp.json
