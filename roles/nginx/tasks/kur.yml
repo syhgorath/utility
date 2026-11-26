@@ -77,12 +77,59 @@
         state: started
       when: not ansible_check_mode
       register: kd_nginx_servis
+    # Dinlenen adres SUNUCUDAN okunur: reload, aynı portta adres değişince (127.0.0.1 <-> 0.0.0.0) "Address already in use" alır ve eski adreste kalır
+    # (komut yine başarılı döner). Dosya doğru ama servis eski adresteyse (ör. önceki sürümün bıraktığı durum) de yeniden başlatılır.
+    - name: Read the addresses nginx listens on for this port
+      ansible.builtin.shell: set -o pipefail; ss -ltnpH | awk '/"nginx"/ {print $4}' | { grep -E ':{{ k_port }}$' || true; } | sort -u
+      args:
+        executable: /bin/bash
+      register: kurulum_nginx_dinleme
+      changed_when: false
+      check_mode: false
+    - name: Note whether the configuration changed
+      ansible.builtin.set_fact:
+        k_nginx_degisti: "{{ kd_nginx_site is changed or kd_nginx_bag is changed or kd_nginx_varsayilan is changed }}"
+    # restart: port üzerinde istenenden farklı adres dinleniyor, ya da yapılandırma aynı olduğu halde istenen adres dinlenmiyor. Yalnız port değişiyorsa reload yeter.
+    - name: Decide whether a restart is needed
+      ansible.builtin.set_fact:
+        k_nginx_yeniden: >-
+          {{ kurulum_nginx_dinleme.stdout_lines != [k_bind ~ ':' ~ k_port]
+             and (kurulum_nginx_dinleme.stdout_lines | length > 0 or not k_nginx_degisti | bool) }}
     - name: Reload nginx after a configuration change
       ansible.builtin.systemd:
         name: nginx
         state: reloaded
-      when: not ansible_check_mode and (kd_nginx_site is changed or kd_nginx_bag is changed or kd_nginx_varsayilan is changed)
+      when: not ansible_check_mode and k_nginx_degisti | bool and not k_nginx_yeniden | bool
       register: kd_nginx_yenile
+    # --check'te de koşar (değiştirmeden "changed" der): önizleme, dosya aynı olsa bile adres farkını gösterir
+    - name: Restart nginx to apply the listen address
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted
+      when: k_nginx_yeniden | bool
+      register: kd_nginx_adres
+    - name: Wait for nginx to listen on the requested address
+      ansible.builtin.shell: |
+        set -o pipefail
+        for _ in $(seq 1 20); do
+            d=$(ss -ltnpH | awk '/"nginx"/ {print $4}' | { grep -E ':{{ k_port }}$' || true; } | sort -u | tr '\n' ' ')
+            [ "$d" = "{{ k_bind }}:{{ k_port }} " ] && break
+            sleep 0.5
+        done
+        echo "$d"
+      args:
+        executable: /bin/bash
+      register: kurulum_nginx_dogrula
+      changed_when: false
+      when: not ansible_check_mode
+    - name: Fail when the requested listen address is not in effect
+      ansible.builtin.assert:
+        that: kurulum_nginx_dogrula.stdout | trim == k_bind ~ ':' ~ k_port
+        fail_msg: >-
+          kurulum: nginx için istenen dinleme adresi uygulanamadı. İstenen: {{ k_bind }}:{{ k_port }}; dinlenen: {{ kurulum_nginx_dogrula.stdout | trim or '(yok)' }}.
+          Servis dışarıya açık kalmış olabilir. Aynı portu kullanan başka bir nginx sitesi olup olmadığına (/etc/nginx) ve `sudo journalctl -u nginx` çıktısına bakın.
+        quiet: true
+      when: not ansible_check_mode
     - name: Connection keys
       ansible.builtin.include_role:
         name: env_dosyalari

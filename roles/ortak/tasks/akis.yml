@@ -33,11 +33,12 @@
         - name: Guards (one mode, fixed version, unmanaged package)
           ansible.builtin.include_tasks: yazilim_koruma.yml
 
+        # yukselt de o anki port değerini uygular: denetim servise dokunmadan (yedek/compose'dan) ÖNCE yapılmalı
         - name: Port check
           ansible.builtin.include_role:
             name: port_kaydi
             tasks_from: kontrol
-          when: kurulum_islem == 'kur'
+          when: kurulum_islem in ['kur', 'yukselt']
 
         - name: Docker mode needs a usable Docker (install it first with kurulum_yazilim=docker)
           ansible.builtin.assert:
