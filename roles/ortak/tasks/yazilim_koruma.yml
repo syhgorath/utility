@@ -40,3 +40,98 @@
       Yükseltme için yukselt eylemini kullanın (öncesinde döküm alır, geri düşürme yoktur).
     quiet: true
   when: kurulum_islem == 'kur'
+
+# --- Ağ erişimi: istenen değer + sunucudaki kayıt -> bu koşunun erişimi (k_erisim), bağlama adresi (k_bind), yayınlanan port (k_port; iç ağda 0) ---
+# otomatik: kurulu uygulama bugünkü davranışını korur (kayıtta 'ic' ise iç ağda kalır; değilse kurulum_dis_erisim'e göre sunucu/agdan).
+# Yalnız YENİ docker mariadb/redis iç ağda başlar.
+- name: Resolve the network access
+  ansible.builtin.set_fact:
+    k_erisim: >-
+      {{ k_istek if k_istek != 'otomatik'
+         else ('ic' if k_kurulu and k_mod == 'docker' and k_kayit_eski.erisim | default('') == 'ic'
+         else ('agdan' if kurulum_dis_erisim | bool
+         else ('ic' if not k_kurulu and k_mod == 'docker' and k_yz in ['mariadb', 'redis'] else 'sunucu'))) }}
+  vars:
+    k_istek: "{{ lookup('vars', 'kurulum_' ~ k_yz ~ '_erisim') }}"
+
+- name: Native software cannot be limited to the docker network
+  ansible.builtin.assert:
+    that: not (k_mod == 'native' and k_erisim == 'ic')
+    fail_msg: >-
+      kurulum: 'yalnız iç ağ' (kurulum_{{ k_yz }}_erisim=ic) yalnız docker modunda anlamlıdır; native serviste 'sunucu' (127.0.0.1) ya da 'agdan' seçin.
+      Hiçbir şey değiştirilmedi.
+    quiet: true
+  when: kurulum_islem in ['kur', 'yukselt']
+
+- name: Derive the bind address and the published port
+  ansible.builtin.set_fact:
+    k_bind: "{{ {'ic': '', 'sunucu': '127.0.0.1', 'agdan': '0.0.0.0'}[k_erisim] }}"
+    k_port: "{{ 0 if k_erisim == 'ic' else k_port | int }}"
+
+# --- İç ağ adı: gerçek kaynak sunucudaki işaret (alan yoksa 'kurulum'). Docker uygulaması kuruluyken ad değiştirilemez. ---
+- name: Read the recorded docker network
+  ansible.builtin.set_fact:
+    k_ag_kayitli: "{{ k_isaret.docker_ag | default('kurulum') }}"
+    k_docker_uygulamalar: "{{ k_isaret.yazilimlar | default({}) | dict2items | selectattr('value.mod', 'equalto', 'docker') | map(attribute='key') | list }}"
+
+- name: Refuse a network rename while docker applications exist
+  ansible.builtin.assert:
+    that: k_docker_uygulamalar | length == 0 or k_ag_kayitli == kurulum_docker_ag
+    fail_msg: >-
+      kurulum: ağ adı değiştirilemez. Sunucuda docker uygulamaları ({{ k_docker_uygulamalar | join(', ') }}) '{{ k_ag_kayitli }}' ağında kurulu; istenen
+      '{{ kurulum_docker_ag }}'. kurulum_docker_ag değerini '{{ k_ag_kayitli }}' yapın ya da önce bu uygulamaları kaldir ile kaldırın (veri silinmez).
+      Hiçbir şey değiştirilmedi.
+    quiet: true
+  when: k_mod == 'docker' and kurulum_islem in ['kur', 'yukselt']
+
+- name: Inspect an existing network with that name
+  ansible.builtin.command: "docker network inspect -f '{% raw %}{{.Driver}}{% endraw %}' {{ kurulum_docker_ag }}"
+  register: kurulum_ag_surucu
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: k_mod == 'docker' and kurulum_islem in ['kur', 'yukselt'] and kurulum_docker_durum in ['resmi', 'dagitim']
+
+- name: Refuse a network that is not a bridge network
+  ansible.builtin.assert:
+    that: kurulum_ag_surucu.stdout | trim == 'bridge'
+    fail_msg: >-
+      kurulum: '{{ kurulum_docker_ag }}' adlı docker ağı zaten var ve bridge türünde değil ({{ kurulum_ag_surucu.stdout | trim }}). Başka bir ad seçin.
+      Hiçbir şey değiştirilmedi.
+    quiet: true
+  when: kurulum_ag_surucu.rc | default(1) == 0
+
+# docker modunda kur/yukselt istenen adı kullanır (yukarıda doğrulandı); diğer her şey kayıtlı adı korur
+- name: Decide the network name to record
+  ansible.builtin.set_fact:
+    k_docker_ag: "{{ kurulum_docker_ag if k_mod == 'docker' and kurulum_islem in ['kur', 'yukselt'] else k_ag_kayitli }}"
+
+- name: Warn that moving into the docker network removes the published port
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI {{ k_yz }} şu an {{ k_kayit_eski.bind }}:{{ k_kayit_eski.port }} üzerinde yayınlı; iç ağa alınınca yayın kalkar ve konteyner yeniden yaratılır.
+      Sunucudan bu adresle bağlananlar kopar.
+  when: k_erisim == 'ic' and k_kurulu and k_kayit_eski.bind | default('') != '' and kurulum_islem != 'kaldir'
+
+- name: Note the reach of an internal-only application
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: {{ k_yz }} yalnız iç ağda: port yayınlanmaz. '{{ k_docker_ag }}' ağındaki konteynerler (hepsi) ve bu sunucunun kendisi (konteyner IP'si ile) erişebilir.
+  when: k_erisim == 'ic' and kurulum_islem != 'kaldir'
+
+# ufw uyarısı moda göre: Docker'ın yayınladığı port ufw kurallarına takılmaz; native serviste ufw kuralı erişimi belirler.
+- name: Warn that ufw does not filter a docker-published port
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI dış erişim açık ({{ k_bind }}:{{ k_port }}). Docker'ın yayınladığı port ufw kurallarına TAKILMAZ: ufw 'deny incoming' olsa bile bu port
+      ağdaki herkese açıktır ve ufw kuralı eklemek erişimi kısıtlamaz. Kısıtlamak için kurulum_{{ k_yz }}_erisim=sunucu ya da ic seçin (veya sunucunun önünde
+      ayrı bir güvenlik duvarı kullanın).
+  when: k_erisim == 'agdan' and k_mod == 'docker' and kurulum_islem != 'kaldir'
+
+- name: Show the ufw suggestion for an exposed native service
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: dış erişim açık ({{ k_bind }}:{{ k_port }}). ufw'ye YAZILMAZ (tek sahibi linux-hardening). Öneri: servers/<ad>/linux-hardening.vars içinde
+      hardening_ufw_extra_allow_host listesine 'from <yönetim ağı> to any port {{ k_port }} proto tcp' ekleyin ('any' kaynak vermeyin).
+  when: k_erisim == 'agdan' and k_mod == 'native' and kurulum_islem != 'kaldir'
+

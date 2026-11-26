@@ -51,6 +51,9 @@
       - kurulum_mod in ['native', 'docker']
       - kurulum_docker_kaynak in ['resmi', 'dagitim']
       - kurulum_dis_erisim | bool in [true, false]
+      - kurulum_nginx_erisim in ['otomatik', 'ic', 'sunucu', 'agdan']
+      - kurulum_mariadb_erisim in ['otomatik', 'ic', 'sunucu', 'agdan']
+      - kurulum_redis_erisim in ['otomatik', 'ic', 'sunucu', 'agdan']
       - kurulum_ana_klasor is string
       - kurulum_nginx_port | int >= 1 and kurulum_nginx_port | int <= 65535
       - kurulum_mariadb_port | int >= 1 and kurulum_mariadb_port | int <= 65535
@@ -64,12 +67,21 @@
       redis {{ kurulum_katalog.redis.surumler | join(', ') }}).
     quiet: true
 
+- name: Validate the docker network name
+  ansible.builtin.assert:
+    that:
+      - kurulum_docker_ag is match('^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$')
+      - kurulum_docker_ag not in ['bridge', 'host', 'none', 'default']
+    fail_msg: >-
+      kurulum: kurulum_docker_ag geçersiz. Harf ya da rakamla başlayan, en çok 63 karakterlik bir ad olmalı (harf, rakam, _ . -); bridge, host, none, default kullanılamaz.
+      Hiçbir şey değiştirilmedi.
+    quiet: true
+
 - name: Derive per-run values
   ansible.builtin.set_fact:
     k_yz: "{{ kurulum_yazilim }}"
     k_mod: "{{ 'native' if kurulum_yazilim == 'docker' else kurulum_mod }}"
     k_ana: "{{ kurulum_ana_klasor | trim | regex_replace('/+$', '') if kurulum_ana_klasor | trim != '/' else '/' }}"
-    k_bind: "{{ '0.0.0.0' if kurulum_dis_erisim | bool else '127.0.0.1' }}"
 
 - name: Derive software values
   ansible.builtin.set_fact:
@@ -99,10 +111,3 @@
   ansible.builtin.set_fact:
     k_surum: "dagitim"
   when: k_yz != 'docker' and k_mod == 'native'
-
-- name: Show the ufw suggestion when exposed
-  ansible.builtin.debug:
-    msg: >-
-      kurulum: dış erişim açık ({{ k_bind }}:{{ k_port }}). ufw'ye YAZILMAZ (tek sahibi linux-hardening). Öneri: servers/<ad>/linux-hardening.vars içinde
-      hardening_ufw_extra_allow_host listesine 'from <yönetim ağı> to any port {{ k_port }} proto tcp' ekleyin ('any' kaynak vermeyin). Docker yayınlanan portu ufw'yi atlayarak açar.
-  when: k_yz != 'docker' and kurulum_dis_erisim | bool

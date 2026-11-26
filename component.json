@@ -218,7 +218,7 @@
       "warnings": [
         "Önizleme dosya farkını ve plan sonucunu gösterir; paket kurulumu, imaj çekme, konteyner başlatma, servis ve parola üretimi --check'te ÇALIŞMAZ, gösterilmez.",
         "kurulum_yazilim ve kurulum_mod seçilen yazılımı belirler; kurulu sürüm istenenden farklıysa yukseltme=evet görünür (kur sürümü sessizce değiştirmez, yukselt gerekir).",
-        "ufw'ye YAZILMAZ (tek sahibi linux-hardening). Varsayılan yayın 127.0.0.1; kurulum_dis_erisim=true ise gereken ufw kuralı önerisi çıktıda gösterilir, hardening_ufw_extra_allow_host listesine siz eklersiniz. Docker yayınlanan portu ufw'yi atlayarak açar."
+        "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host)."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -252,7 +252,7 @@
         "Bir yazılım için tek mod vardır; zaten kurulu ve yönetilmeyen paketlere (kayıtsız) dokunulmaz, koşu durur.",
         "nginx/mariadb/redis native kurulumunda paketin kurulum betiği servisi dağıtım varsayılanıyla kısaca başlatır; varsayılan port doluysa koşu başlamadan durur.",
         "İkinci kur değişiklik yapmaz (idempotent). Aynı sunucuda eşzamanlı iki koşu sunucudaki kilitle engellenir.",
-        "ufw'ye YAZILMAZ (tek sahibi linux-hardening). Varsayılan yayın 127.0.0.1; kurulum_dis_erisim=true ise gereken ufw kuralı önerisi çıktıda gösterilir, hardening_ufw_extra_allow_host listesine siz eklersiniz. Docker yayınlanan portu ufw'yi atlayarak açar."
+        "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host)."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -426,7 +426,53 @@
       "default": false,
       "warn_if": true,
       "group": "Ağ",
-      "description": "false = yalnızca 127.0.0.1'de dinler. true = 0.0.0.0 (dışarı açık); ufw'ye yazılmaz, kural önerisi gösterilir."
+      "description": "Eski genel seçim; yalnız uygulamanın erişim değişkeni 'otomatik' iken etkilidir. false = 127.0.0.1; true = 0.0.0.0 (dışarı açık). ufw'ye yazılmaz; Docker'ın yayınladığı port ufw'ye takılmaz."
+    },
+    {
+      "name": "kurulum_nginx_erisim",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "ic",
+        "sunucu",
+        "agdan"
+      ],
+      "default": "otomatik",
+      "group": "nginx",
+      "description": "nginx ağ erişimi. otomatik = kurulu uygulama bugünkü durumunu korur (iç ağdaysa kalır, değilse kurulum_dis_erisim); yeni kurulum bu sunucudan. ic = yalnız iç ağ, port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
+    },
+    {
+      "name": "kurulum_mariadb_erisim",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "ic",
+        "sunucu",
+        "agdan"
+      ],
+      "default": "otomatik",
+      "group": "mariadb",
+      "description": "mariadb ağ erişimi. otomatik = kurulu uygulama bugünkü durumunu korur (iç ağdaysa kalır, değilse kurulum_dis_erisim); yeni docker kurulumu yalnız iç ağ, native kurulum bu sunucudan. ic = yalnız iç ağ, port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
+    },
+    {
+      "name": "kurulum_redis_erisim",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "ic",
+        "sunucu",
+        "agdan"
+      ],
+      "default": "otomatik",
+      "group": "redis",
+      "description": "redis ağ erişimi. otomatik = kurulu uygulama bugünkü durumunu korur (iç ağdaysa kalır, değilse kurulum_dis_erisim); yeni docker kurulumu yalnız iç ağ, native kurulum bu sunucudan. ic = yalnız iç ağ, port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
+    },
+    {
+      "name": "kurulum_docker_ag",
+      "type": "string",
+      "default": "kurulum",
+      "group": "Ağ",
+      "description": "Docker uygulamalarının ortak ağ adı. Docker uygulaması kuruluyken değiştirilemez (gerçek kaynak sunucudaki kayıt). bridge, host, none, default kullanılamaz; aynı adlı mevcut bridge ağına katılınır."
     },
     {
       "name": "kurulum_nginx_port",

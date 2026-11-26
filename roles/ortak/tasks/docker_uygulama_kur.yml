@@ -91,4 +91,5 @@
       surum: "{{ k_surum }}"
       port: "{{ k_port | int }}"
       bind: "{{ k_bind }}"
+      erisim: "{{ k_erisim }}"
       veri_yolu: "{{ k_ana }}/{{ k_yz }}/data"
