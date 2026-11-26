@@ -1,0 +1,44 @@
+# Native servis (mariadb/redis): istenen adres:port SUNUCUDA gerçekten dinleniyor mu? Yapılandırma değiştiyse ya da dinlenen istenenden farklıysa yeniden başlatır,
+# sonunda doğrular. (İlk kurulumda paket servisi varsayılan ayarla kendisi başlatır; yarıda kalmış koşuda dosya doğru, servis eski adreste olabilir.)
+# Girdi: k_servis (systemd birimi), k_surec (ss'teki süreç adı), k_dosya_degisti (bool). --check'te değiştirmeden "changed" der.
+- name: Read the listening addresses of the service
+  ansible.builtin.shell: set -o pipefail; ss -ltnpH | awk -v s='"{{ k_surec }}"' 'index($0, s) {print $4}' | sort -u
+  args:
+    executable: /bin/bash
+  register: kurulum_dinleme
+  changed_when: false
+  check_mode: false
+
+- name: Restart the service to apply the configuration
+  ansible.builtin.systemd:
+    name: "{{ k_servis }}"
+    state: restarted
+  # --check'te paket kurulu değilse servis birimi yoktur
+  when: >-
+    (k_dosya_degisti | bool or kurulum_dinleme.stdout_lines != [k_bind ~ ':' ~ k_port])
+    and not (ansible_check_mode and kurulum_paket_var.stdout == '0')
+  register: kd_dinleme_yeniden
+
+- name: Wait for the service to listen on the requested address
+  ansible.builtin.shell: |
+    set -o pipefail
+    for _ in $(seq 1 40); do
+        d=$(ss -ltnpH | awk -v s='"{{ k_surec }}"' 'index($0, s) {print $4}' | sort -u | tr '\n' ' ')
+        [ "$d" = "{{ k_bind }}:{{ k_port }} " ] && break
+        sleep 0.5
+    done
+    echo "$d"
+  args:
+    executable: /bin/bash
+  register: kurulum_dinleme_son
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Fail when the requested listen address is not in effect
+  ansible.builtin.assert:
+    that: kurulum_dinleme_son.stdout | trim == k_bind ~ ':' ~ k_port
+    fail_msg: >-
+      kurulum: {{ k_servis }} için istenen dinleme adresi uygulanamadı. İstenen: {{ k_bind }}:{{ k_port }}; dinlenen: {{ kurulum_dinleme_son.stdout | trim or '(yok)' }}.
+      Servis dışarıya açık kalmış olabilir. Elle eklenmiş bir yapılandırma olup olmadığına ve `sudo journalctl -u {{ k_servis }}` çıktısına bakın.
+    quiet: true
+  when: not ansible_check_mode

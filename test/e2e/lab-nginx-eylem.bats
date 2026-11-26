@@ -2,7 +2,6 @@
 # LAB e2e: sabit hedefli nginx eylemleri (nginx_onizle, nginx_kur, nginx_yukselt) ve kurulum_durum'un nginx_* anahtarları (SUNUCUDAKİ gerçek durumdan).
 # SIRALI testler. Gerçek VM yerine GEÇMEZ. Ağda TLS'i araya giren yazılım varsa: LAB_CA_FILE=<kök sertifika.pem>
 # DİKKAT: macOS bash 3.2 ile bats, testin ortasındaki başarısız [[ ]] ifadesini YOK SAYAR; bu yüzden her [[ ]] "|| false" ile biter.
-# shellcheck disable=SC2016  # ${Version} bilerek dpkg-query'ye olduğu gibi gider
 load ortak
 
 # anahtar <ad>: son sonuç satırındaki değer (anahtar yoksa "-")
@@ -62,10 +61,10 @@ setup_file() {
   [[ "$output" != *"DEĞİŞECEK"* ]] || false
 }
 
-@test "iç ağ: nginx_erisim=ic, nginx_port=yok" {
+@test "iç ağ: nginx_erisim=ic, nginx_port=ic" {
   krun nginx_kur -e kurulum_nginx_port=8081 -e kurulum_nginx_erisim=ic
   [ "$status" -eq 0 ]
-  nginx_beklenen evet docker yok 1.30.6 ic
+  nginx_beklenen evet docker ic 1.30.6 ic
   krun nginx_kur -e kurulum_nginx_port=8081 -e kurulum_nginx_erisim=sunucu
   [ "$status" -eq 0 ]
   nginx_beklenen evet docker 8081 1.30.6 sunucu
@@ -112,21 +111,18 @@ setup_file() {
   nginx_beklenen hayir yok yok yok yok
 }
 
-@test "native: nginx_kur kurar; durum dpkg sürümünü ve gerçek dinleyeni bildirir" {
+@test "native: nginx_kur kurar; durum surum=dagitim ve gerçek dinleyeni bildirir" {
   krun nginx_kur -e kurulum_nginx_port=8081
   [ "$status" -eq 0 ]
   [[ "$(result)" == *" mod=native surum=dagitim port=8081 "* ]] || false
-  surum=$(lab dpkg-query -W -f '${Version}' nginx | tr -c 'A-Za-z0-9_.:+-' '_')
-  [ -n "$surum" ]
-  nginx_beklenen evet native 8081 "$surum" sunucu
+  nginx_beklenen evet native 8081 dagitim sunucu
 }
 
 @test "native kurulu iken kurulum_mod=docker verilse de kurulu mod korunur; ağdan açılır; ic reddedilir" {
-  surum=$(lab dpkg-query -W -f '${Version}' nginx | tr -c 'A-Za-z0-9_.:+-' '_')
   krun nginx_kur -e kurulum_mod=docker -e kurulum_nginx_port=8081 -e kurulum_nginx_erisim=agdan
   [ "$status" -eq 0 ]
   [[ "$(result)" == *" mod=native "* ]] || false
-  nginx_beklenen evet native 8081 "$surum" agdan
+  nginx_beklenen evet native 8081 dagitim agdan
   krun nginx_kur -e kurulum_nginx_port=8081 -e kurulum_nginx_erisim=ic
   [ "$status" -ne 0 ]
   [[ "$output" == *"yalnız docker modunda"* ]] || false
@@ -134,22 +130,21 @@ setup_file() {
 }
 
 @test "native durum dosyaya değil dinleyene bakar; durmuş servis = durmus; yukselt native'de reddedilir" {
-  surum=$(lab dpkg-query -W -f '${Version}' nginx | tr -c 'A-Za-z0-9_.:+-' '_')
   lab sed -i 's/listen 0.0.0.0:8081/listen 127.0.0.1:8081/' /etc/nginx/sites-available/kurulum
-  nginx_beklenen evet native 8081 "$surum" agdan
+  nginx_beklenen evet native 8081 dagitim agdan
   lab systemctl stop nginx
-  nginx_beklenen durmus native unknown "$surum" unknown
+  nginx_beklenen durmus native unknown dagitim unknown
   krun nginx_yukselt -e kurulum_nginx_port=8081
   [ "$status" -ne 0 ]
   [[ "$output" == *"native sürüm yükseltme"* ]] || false
   krun nginx_kur -e kurulum_nginx_port=8081
   [ "$status" -eq 0 ]
-  nginx_beklenen evet native 8081 "$surum" sunucu
+  nginx_beklenen evet native 8081 dagitim sunucu
 }
 
-@test "sonuç satırı sözleşmesi: 9 anahtar, her değer en çok 64 karakter ve yalnız izinli karakterler" {
+@test "sonuç satırı sözleşmesi: 20 anahtar, her değer en çok 64 karakter ve yalnız izinli karakterler" {
   krun kurulum_durum
-  [ "$(result | tr ' ' '\n' | grep -c '=')" = 9 ]
+  [ "$(result | tr ' ' '\n' | grep -c '=')" = 20 ]
   run bash -c "printf '%s\n' '$(result)' | tr ' ' '\n' | sed -n 's/^[a-z_]*=//p' | grep -vE '^[A-Za-z0-9_.:+-]{1,64}\$' | wc -l | tr -d ' '"
   [ "$output" = 0 ]
 }

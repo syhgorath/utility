@@ -4,12 +4,14 @@
     k_kurulu: "{{ k_yz in (k_isaret.yazilimlar | default({})) }}"
     k_kayit_eski: "{{ (k_isaret.yazilimlar | default({})).get(k_yz, {}) }}"
 
-# Sabit hedefli eylemler (nginx_*) kurulu uygulamayı YÖNETİR: kurulu mod korunur, kurulum_mod yalnız yeni kurulumda geçerlidir (mod değişimi: kaldir + kur)
+# Sabit hedefli eylemler (<yz>_*) kurulu uygulamayı YÖNETİR: kurulum_<yz>_mod 'otomatik' iken kurulu mod korunur (genel kurulum_mod yalnız yeni kurulumda).
+# Uygulama başına mod açıkça farklıysa aşağıdaki tek mod denetimi reddeder. kaldir'de de uygulama başına mod seçilmişse kurulu mod esas alınır (kaldırma mod değiştirmez).
 - name: Fixed-target actions keep the installed mode
   ansible.builtin.set_fact:
     k_mod: "{{ k_kayit_eski.mod }}"
     k_surum: "{{ 'dagitim' if k_kayit_eski.mod == 'native' else (k_ozel.split(':')[1] if k_ozel != '' else k_surum_secili) }}"
-  when: k_sabit_yz is defined and k_kurulu
+  when: >-
+    k_kurulu and ((k_sabit_yz is defined and k_mod_istek == 'otomatik') or (kurulum_islem == 'kaldir' and k_mod_istek != 'otomatik'))
 
 - name: Is the package installed?
   ansible.builtin.shell: "dpkg-query -W -f='${db:Status-Abbrev}' {{ k_katalog.paket }} 2>/dev/null | grep -q '^ii' && echo 1 || echo 0"
@@ -44,7 +46,7 @@
     that: not k_yukseltme or ansible_check_mode or (k_yukselt_modu | default(false) | bool)
     fail_msg: >-
       kurulum: {{ k_yz }} sunucuda {{ k_kayit_eski.surum | default('') }} sürümünde; istenen {{ k_surum }}. kur sürümü sessizce değiştirmez.
-      Yükseltme için {{ 'nginx_yukselt' if k_sabit_yz is defined else 'yukselt' }} eylemini kullanın (öncesinde döküm alır, geri düşürme yoktur).
+      Yükseltme için {{ k_sabit_yz ~ '_yukselt' if k_sabit_yz is defined else 'yukselt' }} eylemini kullanın (öncesinde döküm alır, geri düşürme yoktur).
     quiet: true
   when: kurulum_islem == 'kur'
 

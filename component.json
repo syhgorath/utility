@@ -211,7 +211,18 @@
           "nginx_mod",
           "nginx_port",
           "nginx_surum",
-          "nginx_erisim"
+          "nginx_erisim",
+          "mariadb_kurulu",
+          "mariadb_mod",
+          "mariadb_port",
+          "mariadb_surum",
+          "mariadb_erisim",
+          "redis_kurulu",
+          "redis_mod",
+          "redis_port",
+          "redis_surum",
+          "redis_erisim",
+          "docker_servis"
         ]
       }
     },
@@ -418,6 +429,261 @@
           "gizli"
         ]
       }
+    },
+    "docker_onizle": {
+      "cmd": "ansible-playbook playbooks/docker_onizle.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur (--check --diff): docker_kur'un ne yapacağını gösterir; depo ve paket işlemleri çalışmaz.",
+        "Hedef sabittir: Docker taban (kurulum_yazilim etkisiz)."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.docker_onizle",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "docker_kur": {
+      "cmd": "ansible-playbook playbooks/docker_kur.yml",
+      "effects": [
+        "installs-package",
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "docker_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "Docker YOKSA kurar (resmi apt deposu ya da dağıtım paketi). Kurulu Docker'a dokunmaz; kaynağını değiştirmez. snap/paket dışı Docker'a dokunmaz.",
+        "Hedef sabittir: Docker taban (kurulum_yazilim etkisiz).",
+        "Docker güvenlik duvarı (iptables) kurallarını yönetir; yayınlanan konteyner portları ufw'ye takılmaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.docker_kur",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "docker_yukselt": {
+      "cmd": "ansible-playbook playbooks/docker_yukselt.yml",
+      "effects": [
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "docker_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "HER ZAMAN REDDEDER ve hiçbir şeyi değiştirmez: Docker taban yükseltmesi desteklenmez. Dağıtımın apt güncellemesini kendiniz yönetin.",
+        "Hedef sabittir: Docker taban (kurulum_yazilim etkisiz)."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.docker_yukselt",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "mariadb_onizle": {
+      "cmd": "ansible-playbook playbooks/mariadb_onizle.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur (--check --diff): mariadb_kur'un ne yapacağını gösterir; paket, imaj, konteyner, servis ve parola işlemleri çalışmaz.",
+        "Hedef sabittir: MariaDB (kurulum_yazilim etkisiz). Kurulu MariaDB'in modu korunur; mod seçimi yalnız yeni kurulumda geçerlidir.",
+        "Değer verilmeyen değişken varsayılanına döner (ör. port 3306, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.mariadb_onizle",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "mariadb_kur": {
+      "cmd": "ansible-playbook playbooks/mariadb_kur.yml",
+      "effects": [
+        "installs-package",
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "mariadb_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "MariaDB kurar ya da port ve erişim ayarını uygular; servis kısa süre kesilebilir. Kurulu docker sürümünü DEĞİŞTİRMEZ (mariadb_yukselt).",
+        "Hedef sabittir: MariaDB (kurulum_yazilim etkisiz). Kurulu MariaDB'in modu korunur; mod seçimi yalnız yeni kurulumda geçerlidir.",
+        "Değer verilmeyen değişken varsayılanına döner (ör. port 3306, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yeni docker kurulumu port yayınlamaz (yalnız iç ağ). 'agdan' docker modunda ufw'ye takılmaz. Parola sunucuda üretilir, hiçbir çıktıya yazılmaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.mariadb_kur",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "mariadb_yukselt": {
+      "cmd": "ansible-playbook playbooks/mariadb_yukselt.yml",
+      "effects": [
+        "installs-package",
+        "changes-config",
+        "destructive"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "mariadb_onizle"
+      ],
+      "confirm": "type-server-name",
+      "warnings": [
+        "Yalnızca docker modunda kurulu MariaDB daha YENİ bir küratörlü sürüme yükseltilir; önce tam veritabanı dökümü alınır. GERİ DÜŞÜRME YOKTUR.",
+        "Hedef sabittir: MariaDB (kurulum_yazilim etkisiz). Kurulu MariaDB'in modu korunur; mod seçimi yalnız yeni kurulumda geçerlidir.",
+        "O anki port ve erişim değerleri de uygulanır. Değer verilmeyen değişken varsayılanına döner (ör. port 3306, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yükseltme sırasında servis yeniden başlar (kısa kesinti)."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.mariadb_yukselt",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "redis_onizle": {
+      "cmd": "ansible-playbook playbooks/redis_onizle.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur (--check --diff): redis_kur'un ne yapacağını gösterir; paket, imaj, konteyner, servis ve parola işlemleri çalışmaz.",
+        "Hedef sabittir: Redis (kurulum_yazilim etkisiz). Kurulu Redis'in modu korunur; mod seçimi yalnız yeni kurulumda geçerlidir.",
+        "Değer verilmeyen değişken varsayılanına döner (ör. port 6379, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redis_onizle",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "redis_kur": {
+      "cmd": "ansible-playbook playbooks/redis_kur.yml",
+      "effects": [
+        "installs-package",
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "redis_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "Redis kurar ya da port ve erişim ayarını uygular; servis kısa süre kesilebilir. Kurulu docker sürümünü DEĞİŞTİRMEZ (redis_yukselt).",
+        "Hedef sabittir: Redis (kurulum_yazilim etkisiz). Kurulu Redis'in modu korunur; mod seçimi yalnız yeni kurulumda geçerlidir.",
+        "Değer verilmeyen değişken varsayılanına döner (ör. port 6379, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yeni docker kurulumu port yayınlamaz (yalnız iç ağ). 'agdan' docker modunda ufw'ye takılmaz. Parola sunucuda üretilir, hiçbir çıktıya yazılmaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redis_kur",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "redis_yukselt": {
+      "cmd": "ansible-playbook playbooks/redis_yukselt.yml",
+      "effects": [
+        "installs-package",
+        "changes-config",
+        "destructive"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "redis_onizle"
+      ],
+      "confirm": "type-server-name",
+      "warnings": [
+        "Yalnızca docker modunda kurulu Redis daha YENİ bir küratörlü sürüme yükseltilir; önce veri kopyası alınır. GERİ DÜŞÜRME YOKTUR.",
+        "Hedef sabittir: Redis (kurulum_yazilim etkisiz). Kurulu Redis'in modu korunur; mod seçimi yalnız yeni kurulumda geçerlidir.",
+        "O anki port ve erişim değerleri de uygulanır. Değer verilmeyen değişken varsayılanına döner (ör. port 6379, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yükseltme sırasında servis yeniden başlar (kısa kesinti)."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redis_yukselt",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
     }
   },
   "vars": [
@@ -493,6 +759,42 @@
       "default": "native",
       "group": "Seçim",
       "description": "native = dağıtım paketi (apt); docker = Docker konteyneri. docker yazılımı için yok sayılır. Bir yazılım için tek mod."
+    },
+    {
+      "name": "kurulum_nginx_mod",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "native",
+        "docker"
+      ],
+      "default": "otomatik",
+      "group": "nginx",
+      "description": "nginx kurulum modu. otomatik = genel kurulum_mod (kurulu uygulamada kurulu mod korunur). Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
+    },
+    {
+      "name": "kurulum_mariadb_mod",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "native",
+        "docker"
+      ],
+      "default": "otomatik",
+      "group": "mariadb",
+      "description": "mariadb kurulum modu. otomatik = genel kurulum_mod (kurulu uygulamada kurulu mod korunur). Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
+    },
+    {
+      "name": "kurulum_redis_mod",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "native",
+        "docker"
+      ],
+      "default": "otomatik",
+      "group": "redis",
+      "description": "redis kurulum modu. otomatik = genel kurulum_mod (kurulu uygulamada kurulu mod korunur). Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
     },
     {
       "name": "kurulum_ana_klasor",
@@ -693,9 +995,27 @@
       "description": "Saat dilimi ve sistem dili (işletim sistemi ayarları)."
     },
     {
+      "id": "docker",
+      "label": "Docker",
+      "description": "Docker Engine ve Compose: kurulum kaynağı ve hizmet durumu.",
+      "summary": {
+        "action": "kurulum_durum",
+        "items": [
+          {
+            "key": "docker",
+            "label": "Docker"
+          },
+          {
+            "key": "docker_servis",
+            "label": "Hizmet"
+          }
+        ]
+      }
+    },
+    {
       "id": "nginx",
       "label": "nginx",
-      "description": "Kurulu nginx'in portu, ağ erişimi ve sürümü.",
+      "description": "Kurulu nginx'in modu, portu, ağ erişimi ve sürümü.",
       "summary": {
         "action": "kurulum_durum",
         "items": [
@@ -705,6 +1025,42 @@
           },
           {
             "key": "nginx_mod",
+            "label": "Mod"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mariadb",
+      "label": "MariaDB",
+      "description": "Kurulu MariaDB'in modu, portu, ağ erişimi ve sürümü.",
+      "summary": {
+        "action": "kurulum_durum",
+        "items": [
+          {
+            "key": "mariadb_kurulu",
+            "label": "Kurulu"
+          },
+          {
+            "key": "mariadb_mod",
+            "label": "Mod"
+          }
+        ]
+      }
+    },
+    {
+      "id": "redis",
+      "label": "Redis",
+      "description": "Kurulu Redis'in modu, portu, ağ erişimi ve sürümü.",
+      "summary": {
+        "action": "kurulum_durum",
+        "items": [
+          {
+            "key": "redis_kurulu",
+            "label": "Kurulu"
+          },
+          {
+            "key": "redis_mod",
             "label": "Mod"
           }
         ]
@@ -796,18 +1152,59 @@
       }
     },
     {
+      "id": "docker_kaynak",
+      "card": "docker",
+      "label": "Kurulum kaynağı",
+      "var": "kurulum_docker_kaynak",
+      "description": "resmi = download.docker.com deposu, dagitim = dağıtım paketi. Yalnız Docker kurulu değilken etkilidir; kurulu Docker'ın kaynağı değiştirilmez.",
+      "risk_note": "Docker güvenlik duvarı kurallarını yönetir; yayınlanan konteyner portları ufw'ye takılmaz.",
+      "apply_via": [
+        "docker_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "docker",
+        "absent": "yok",
+        "not_applicable": [
+          "snap",
+          "diger"
+        ]
+      }
+    },
+    {
+      "id": "nginx_mod",
+      "card": "nginx",
+      "label": "Mod",
+      "var": "kurulum_nginx_mod",
+      "description": "native = dağıtım paketi, docker = konteyner; otomatik = genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "apply_via": [
+        "nginx_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "nginx_mod",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
       "id": "nginx_port",
       "card": "nginx",
       "label": "Port",
       "var": "kurulum_nginx_port",
-      "description": "nginx'in yayınlandığı port. Değer verilmezse 8080 uygulanır. Yalnız iç ağda port yoktur.",
+      "description": "nginx'in yayınlandığı port. Değer verilmezse 8080 uygulanır. Docker'da yalnız iç ağda port yoktur.",
       "apply_via": [
         "nginx_kur"
       ],
       "state": {
         "action": "kurulum_durum",
         "key": "nginx_port",
-        "absent": "yok"
+        "absent": "yok",
+        "not_applicable": [
+          "ic"
+        ]
       }
     },
     {
@@ -815,7 +1212,7 @@
       "card": "nginx",
       "label": "Ağ erişimi",
       "var": "kurulum_nginx_erisim",
-      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik = mevcut durum korunur.",
+      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik: iç ağdaysa kalır, değilse genel dış erişim ayarını izler (varsayılan: sunucu).",
       "risk": [
         "restarts-service"
       ],
@@ -849,7 +1246,180 @@
       "state": {
         "action": "kurulum_durum",
         "key": "nginx_surum",
-        "absent": "yok"
+        "absent": "yok",
+        "not_applicable": [
+          "dagitim"
+        ]
+      }
+    },
+    {
+      "id": "mariadb_mod",
+      "card": "mariadb",
+      "label": "Mod",
+      "var": "kurulum_mariadb_mod",
+      "description": "native = dağıtım paketi, docker = konteyner; otomatik = genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "apply_via": [
+        "mariadb_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "mariadb_mod",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
+      "id": "mariadb_port",
+      "card": "mariadb",
+      "label": "Port",
+      "var": "kurulum_mariadb_port",
+      "description": "MariaDB'in yayınlandığı port. Değer verilmezse 3306 uygulanır. Docker'da yalnız iç ağda port yoktur.",
+      "risk": [
+        "restarts-service"
+      ],
+      "apply_via": [
+        "mariadb_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "mariadb_port",
+        "absent": "yok",
+        "not_applicable": [
+          "ic"
+        ]
+      }
+    },
+    {
+      "id": "mariadb_erisim",
+      "card": "mariadb",
+      "label": "Ağ erişimi",
+      "var": "kurulum_mariadb_erisim",
+      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik: iç ağdaysa kalır, değilse genel dış erişim ayarını izler (varsayılan: sunucu). Yeni docker kurulumu iç ağda.",
+      "risk": [
+        "restarts-service"
+      ],
+      "risk_note": "'agdan' portu ağdaki herkese açar; Docker yayını ufw'ye takılmaz. Değişince servis yeniden başlar.",
+      "apply_via": [
+        "mariadb_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "mariadb_erisim",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
+      "id": "mariadb_surum",
+      "card": "mariadb",
+      "label": "Sürüm",
+      "var": "kurulum_mariadb_surum",
+      "description": "Docker imaj sürümü; kurulu sürümü yalnız mariadb_yukselt yükseltir. Değer verilmezse 11.4.13. Native modda etkisizdir.",
+      "risk": [
+        "restarts-service",
+        "data-loss"
+      ],
+      "risk_note": "Yükseltme (mariadb_yukselt) geri alınamaz: geri düşürme yoktur; servis kısa süre kesilir.",
+      "apply_via": [
+        "mariadb_kur",
+        "mariadb_yukselt"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "mariadb_surum",
+        "absent": "yok",
+        "not_applicable": [
+          "dagitim"
+        ]
+      }
+    },
+    {
+      "id": "redis_mod",
+      "card": "redis",
+      "label": "Mod",
+      "var": "kurulum_redis_mod",
+      "description": "native = dağıtım paketi, docker = konteyner; otomatik = genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "apply_via": [
+        "redis_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "redis_mod",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
+      "id": "redis_port",
+      "card": "redis",
+      "label": "Port",
+      "var": "kurulum_redis_port",
+      "description": "Redis'in yayınlandığı port. Değer verilmezse 6379 uygulanır. Docker'da yalnız iç ağda port yoktur.",
+      "risk": [
+        "restarts-service"
+      ],
+      "apply_via": [
+        "redis_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "redis_port",
+        "absent": "yok",
+        "not_applicable": [
+          "ic"
+        ]
+      }
+    },
+    {
+      "id": "redis_erisim",
+      "card": "redis",
+      "label": "Ağ erişimi",
+      "var": "kurulum_redis_erisim",
+      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik: iç ağdaysa kalır, değilse genel dış erişim ayarını izler (varsayılan: sunucu). Yeni docker kurulumu iç ağda.",
+      "risk": [
+        "restarts-service"
+      ],
+      "risk_note": "'agdan' portu ağdaki herkese açar; Docker yayını ufw'ye takılmaz. Değişince servis yeniden başlar.",
+      "apply_via": [
+        "redis_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "redis_erisim",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
+      "id": "redis_surum",
+      "card": "redis",
+      "label": "Sürüm",
+      "var": "kurulum_redis_surum",
+      "description": "Docker imaj sürümü; kurulu sürümü yalnız redis_yukselt yükseltir. Değer verilmezse 7.4.12. Native modda etkisizdir.",
+      "risk": [
+        "restarts-service",
+        "data-loss"
+      ],
+      "risk_note": "Yükseltme (redis_yukselt) geri alınamaz: geri düşürme yoktur; servis kısa süre kesilir.",
+      "apply_via": [
+        "redis_kur",
+        "redis_yukselt"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "redis_surum",
+        "absent": "yok",
+        "not_applicable": [
+          "dagitim"
+        ]
       }
     }
   ]

@@ -1,0 +1,83 @@
+# Bir uygulamanın SUNUCUDAKİ gerçek durumu (salt okunur, --check'te de çalışır). Yalnız "bu paket yönetiyor mu" ve "mod" işaret dosyasından; port, erişim,
+# sürüm ve çalışma durumu docker'dan / systemd, ss ve dpkg'den okunur (işaret gerçeği yansıtmayabilir). Girdi: k_d_yz, k_isaret. Sonuç: k_st[k_d_yz].
+#   kurulu: hayir (yönetilmiyor) | evet (çalışıyor) | durmus | unknown (docker hizmetine ulaşılamıyor). Kurulu değilse diğerleri "yok".
+#   port/erisim yalnız çalışırken bilinir (değilse unknown); yalnız iç ağ: port=ic erisim=ic. Native surum=dagitim (paket sürümü yalnız ekranda).
+# Yapılandırma dosyalarından yalnız port satırı okunur; parola ve .env içeriği hiçbir çıktıya girmez.
+- name: Application facts
+  ansible.builtin.set_fact:
+    k_d: "{{ k_d_bilgi[k_d_yz] }}"
+    k_d_mod: "{{ (k_isaret.yazilimlar | default({})).get(k_d_yz, {}).get('mod', '') }}"
+  vars:
+    k_d_bilgi:
+      nginx: { cport: 80, servis: nginx, surec: nginx, paket: nginx, dosya: /etc/nginx/sites-available/kurulum, desen: 's/^[[:space:]]*listen[[:space:]].*:\([0-9][0-9]*\).*/\1/p' }
+      mariadb: { cport: 3306, servis: mariadb, surec: mariadbd, paket: mariadb-server, dosya: /etc/mysql/mariadb.conf.d/99-kurulum.cnf, desen: 's/^port[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' }
+      redis: { cport: 6379, servis: redis-server, surec: redis-server, paket: redis-server, dosya: /etc/redis/redis.conf, desen: 's/^port[[:space:]][[:space:]]*\([0-9][0-9]*\).*/\1/p' }
+
+- name: Defaults for an unmanaged application
+  ansible.builtin.set_fact:
+    k_st: "{{ k_st | default({}) | combine({k_d_yz: {'kurulu': 'hayir', 'mod': 'yok', 'port': 'yok', 'surum': 'yok', 'erisim': 'yok', 'paket': ''}}) }}"
+
+- name: Inspect the container
+  when: k_d_mod == 'docker'
+  ansible.builtin.command: >-
+    docker inspect -f '{% raw %}{{.State.Status}}|{{.Config.Image}}|{{json .HostConfig.PortBindings}}{% endraw %}' kurulum-{{ k_d_yz }}
+  register: kurulum_d_kutu
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# konteyner yoksa "durmus"; docker'a ulaşılamıyorsa hiçbir iddiada bulunulmaz
+- name: Evaluate the container
+  when: k_d_mod == 'docker'
+  ansible.builtin.set_fact:
+    k_st: >-
+      {{ k_st | combine({k_d_yz: {
+           'kurulu': (('evet' if k_d_alan[0] == 'running' else 'durmus') if kurulum_d_kutu.rc == 0
+                      else ('durmus' if 'no such object' in (kurulum_d_kutu.stderr | default('') | lower) else 'unknown')),
+           'mod': 'docker',
+           'surum': (k_d_alan[1].split(':')[-1] if kurulum_d_kutu.rc == 0 else 'unknown'),
+           'port': ('unknown' if not k_d_calisiyor else (k_d_bag[0].HostPort if k_d_bag | length > 0 else 'ic')),
+           'erisim': ('unknown' if not k_d_calisiyor else ('ic' if k_d_bag | length == 0
+                      else ('sunucu' if k_d_bag | map(attribute='HostIp') | reject('in', ['127.0.0.1', '::1']) | list | length == 0 else 'agdan'))),
+           'paket': ''}}) }}
+  vars:
+    k_d_alan: "{{ (kurulum_d_kutu.stdout | default('')).split('|') }}"
+    k_d_calisiyor: "{{ kurulum_d_kutu.rc == 0 and k_d_alan[0] == 'running' }}"
+    k_d_bag: "{{ ((kurulum_d_kutu.stdout.split('|')[2] | from_json) or {}).get(k_d.cport ~ '/tcp', []) or [] if k_d_calisiyor | bool else [] }}"
+
+# nginx'te kullanıcının başka siteleri olabilir: yönetilen port sitedeki listen satırıdır. mariadb/redis'te süreç tek portta dinliyorsa gerçek port odur.
+- name: Read the native service, package and listeners
+  when: k_d_mod == 'native'
+  ansible.builtin.shell: |
+    set -u
+    echo "servis=$(systemctl is-active {{ k_d.servis }} 2>/dev/null)"
+    echo "paket=$(dpkg-query -W -f '${db:Status-Abbrev} ${Version}' {{ k_d.paket }} 2>/dev/null | awk '$1=="ii"{print $2}')"
+    hepsi=$(ss -ltnpH | awk -v s='"{{ k_d.surec }}"' 'index($0, s) {print $4}' | sort -u)
+    p=$(sed -n '{{ k_d.desen }}' {{ k_d.dosya }} 2>/dev/null | head -n1)
+    if [ "{{ k_d_yz }}" != nginx ]; then
+        gercek=$(printf '%s\n' "$hepsi" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | sort -u)
+        [ "$(printf '%s\n' "$gercek" | grep -c .)" = 1 ] && p=$gercek
+    fi
+    echo "port=$p"
+    echo "dinleyen=$(printf '%s\n' "$hepsi" | { grep -E ":${p:-0}\$" || true; } | tr '\n' ' ')"
+  args:
+    executable: /bin/bash
+  register: kurulum_d_native
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Evaluate the native service
+  when: k_d_mod == 'native'
+  ansible.builtin.set_fact:
+    k_st: >-
+      {{ k_st | combine({k_d_yz: {
+           'kurulu': ('evet' if k_d_satir.servis == 'active' else 'durmus'),
+           'mod': 'native', 'surum': 'dagitim',
+           'port': (k_d_satir.port if k_d_calisiyor else 'unknown'),
+           'erisim': (('sunucu' if k_d_adresler | reject('search', '^127[.]|::1]') | list | length == 0 else 'agdan') if k_d_calisiyor else 'unknown'),
+           'paket': k_d_satir.paket}}) }}
+  vars:
+    k_d_satir: "{{ dict(kurulum_d_native.stdout_lines | map('regex_replace', '^([a-z]+)=.*$', '\\1') | zip(kurulum_d_native.stdout_lines | map('regex_replace', '^[a-z]+=', ''))) }}"
+    k_d_adresler: "{{ (k_d_satir.dinleyen | trim).split() }}"
+    k_d_calisiyor: "{{ k_d_satir.servis == 'active' and k_d_adresler | length > 0 }}"

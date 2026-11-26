@@ -51,6 +51,9 @@
       - kurulum_mod in ['native', 'docker']
       - kurulum_docker_kaynak in ['resmi', 'dagitim']
       - kurulum_dis_erisim | bool in [true, false]
+      - kurulum_nginx_mod in ['otomatik', 'native', 'docker']
+      - kurulum_mariadb_mod in ['otomatik', 'native', 'docker']
+      - kurulum_redis_mod in ['otomatik', 'native', 'docker']
       - kurulum_nginx_erisim in ['otomatik', 'ic', 'sunucu', 'agdan']
       - kurulum_mariadb_erisim in ['otomatik', 'ic', 'sunucu', 'agdan']
       - kurulum_redis_erisim in ['otomatik', 'ic', 'sunucu', 'agdan']
@@ -81,7 +84,12 @@
   ansible.builtin.set_fact:
     # sabit hedefli eylemler (nginx_*) playbook'ta k_sabit_yz verir; kullanıcının kurulum_yazilim değeri o eylemlerde etkisizdir
     k_yz: "{{ k_sabit_yz | default(kurulum_yazilim) }}"
-    k_mod: "{{ 'native' if (k_sabit_yz | default(kurulum_yazilim)) == 'docker' else kurulum_mod }}"
+    # uygulama başına mod (kurulum_<yz>_mod) 'otomatik' değilse genel kurulum_mod'un önüne geçer
+    k_mod_istek: "{{ lookup('ansible.builtin.vars', 'kurulum_' ~ (k_sabit_yz | default(kurulum_yazilim)) ~ '_mod', default='otomatik') }}"
+    k_mod: >-
+      {{ 'native' if (k_sabit_yz | default(kurulum_yazilim)) == 'docker'
+         else (kurulum_mod if lookup('ansible.builtin.vars', 'kurulum_' ~ (k_sabit_yz | default(kurulum_yazilim)) ~ '_mod', default='otomatik') == 'otomatik'
+         else lookup('ansible.builtin.vars', 'kurulum_' ~ (k_sabit_yz | default(kurulum_yazilim)) ~ '_mod')) }}
     k_ana: "{{ kurulum_ana_klasor | trim | regex_replace('/+$', '') if kurulum_ana_klasor | trim != '/' else '/' }}"
 
 - name: Derive software values
