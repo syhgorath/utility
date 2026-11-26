@@ -1,5 +1,5 @@
 # Salt okunur durum: ana klasör, Docker, kurulu yazılımlar ve portlar. Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
-# Sonuç satırı: SSHPOCKET_RESULT utility.kurulum_durum ana_durum=… docker=… kurulu=… portlar=…
+# Sonuç satırı: SSHPOCKET_RESULT utility.kurulum_durum ana_durum=… docker=… kurulu=… portlar=… nginx_kurulu=evet|durmus|hayir|unknown nginx_mod=… nginx_port=… nginx_surum=… nginx_erisim=ic|sunucu|agdan|yok|unknown
 - name: kurulum durum (salt okunur)
   hosts: utility
   gather_facts: true
@@ -18,6 +18,8 @@
       ansible.builtin.include_role: {name: docker_kontrol}
     - name: Listening ports
       ansible.builtin.include_role: {name: port_kaydi, tasks_from: durum}
+    - name: nginx (actual server state)
+      ansible.builtin.include_role: {name: nginx, tasks_from: durum}
     - name: Human-readable status
       ansible.builtin.debug:
         msg:
@@ -25,9 +27,15 @@
           - "docker: {{ kurulum_docker_durum }} (compose: {{ kurulum_docker_compose }})"
           - "kurulu: {{ k_isaret.yazilimlar | default({}) | dict2items | map(attribute='key') | list | join(', ') or '(yok)' }}"
           - "{{ k_durum_satirlari }}"
+          - "nginx (sunucudan okunan): kurulu={{ k_ng_kurulu }} mod={{ k_ng_mod }} port={{ k_ng_port }} sürüm={{ k_ng_surum }} erişim={{ k_ng_erisim }}"
     - name: Result line
       ansible.builtin.debug:
         msg: >-
           SSHPOCKET_RESULT utility.kurulum_durum ana_durum={{ kurulum_ana_durum }} docker={{ kurulum_docker_durum }}
           kurulu={{ k_kurulu_ozet | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           portlar={{ k_port_ozet | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_kurulu={{ k_ng_kurulu }}
+          nginx_mod={{ k_ng_mod }}
+          nginx_port={{ k_ng_port }}
+          nginx_surum={{ k_ng_surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_erisim={{ k_ng_erisim }}

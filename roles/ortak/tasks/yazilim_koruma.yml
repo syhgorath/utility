@@ -4,6 +4,13 @@
     k_kurulu: "{{ k_yz in (k_isaret.yazilimlar | default({})) }}"
     k_kayit_eski: "{{ (k_isaret.yazilimlar | default({})).get(k_yz, {}) }}"
 
+# Sabit hedefli eylemler (nginx_*) kurulu uygulamayı YÖNETİR: kurulu mod korunur, kurulum_mod yalnız yeni kurulumda geçerlidir (mod değişimi: kaldir + kur)
+- name: Fixed-target actions keep the installed mode
+  ansible.builtin.set_fact:
+    k_mod: "{{ k_kayit_eski.mod }}"
+    k_surum: "{{ 'dagitim' if k_kayit_eski.mod == 'native' else (k_ozel.split(':')[1] if k_ozel != '' else k_surum_secili) }}"
+  when: k_sabit_yz is defined and k_kurulu
+
 - name: Is the package installed?
   ansible.builtin.shell: "dpkg-query -W -f='${db:Status-Abbrev}' {{ k_katalog.paket }} 2>/dev/null | grep -q '^ii' && echo 1 || echo 0"
   args:
@@ -37,7 +44,7 @@
     that: not k_yukseltme or ansible_check_mode or (k_yukselt_modu | default(false) | bool)
     fail_msg: >-
       kurulum: {{ k_yz }} sunucuda {{ k_kayit_eski.surum | default('') }} sürümünde; istenen {{ k_surum }}. kur sürümü sessizce değiştirmez.
-      Yükseltme için yukselt eylemini kullanın (öncesinde döküm alır, geri düşürme yoktur).
+      Yükseltme için {{ 'nginx_yukselt' if k_sabit_yz is defined else 'yukselt' }} eylemini kullanın (öncesinde döküm alır, geri düşürme yoktur).
     quiet: true
   when: kurulum_islem == 'kur'
 
@@ -67,6 +74,19 @@
   ansible.builtin.set_fact:
     k_bind: "{{ {'ic': '', 'sunucu': '127.0.0.1', 'agdan': '0.0.0.0'}[k_erisim] }}"
     k_port: "{{ 0 if k_erisim == 'ic' else k_port | int }}"
+
+# Kurulu uygulamada yayın değişecekse söylenir: değer verilmeyen değişken VARSAYILANA döner (ör. port 8080), önizlemede görülsün
+- name: Warn about publish changes to an installed application
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: DEĞİŞECEK {{ k_yz }}: port {{ k_kayit_eski.port | default(0) }} -> {{ k_port }}, erişim {{ k_eski_erisim }} -> {{ k_erisim }}.
+      Değer verilmeyen değişken varsayılanına döner.
+  vars:
+    k_eski_erisim: >-
+      {{ k_kayit_eski.erisim | default({'0.0.0.0': 'agdan', '127.0.0.1': 'sunucu', '': 'ic'}[k_kayit_eski.bind | default('')] | default('sunucu')) }}
+  when: >-
+    k_kurulu and kurulum_islem != 'kaldir' and
+    (k_kayit_eski.port | default(0) | int != k_port | int or k_eski_erisim != k_erisim)
 
 # --- İç ağ adı: gerçek kaynak sunucudaki işaret (alan yoksa 'kurulum'). Docker uygulaması kuruluyken ad değiştirilemez. ---
 - name: Read the recorded docker network

@@ -79,8 +79,9 @@
 
 - name: Derive per-run values
   ansible.builtin.set_fact:
-    k_yz: "{{ kurulum_yazilim }}"
-    k_mod: "{{ 'native' if kurulum_yazilim == 'docker' else kurulum_mod }}"
+    # sabit hedefli eylemler (nginx_*) playbook'ta k_sabit_yz verir; kullanıcının kurulum_yazilim değeri o eylemlerde etkisizdir
+    k_yz: "{{ k_sabit_yz | default(kurulum_yazilim) }}"
+    k_mod: "{{ 'native' if (k_sabit_yz | default(kurulum_yazilim)) == 'docker' else kurulum_mod }}"
     k_ana: "{{ kurulum_ana_klasor | trim | regex_replace('/+$', '') if kurulum_ana_klasor | trim != '/' else '/' }}"
 
 - name: Derive software values

@@ -13,7 +13,7 @@ setup_file() {
   krun kurulum_durum
   [ "$status" -eq 0 ]
   [ "$(recap_changed)" = 0 ]
-  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir nginx_mod=yok nginx_port=yok nginx_surum=yok nginx_erisim=yok" ]
 }
 
 @test "Docker yokken docker modu durur ve HİÇBİR ŞEY oluşturmaz" {
@@ -190,7 +190,7 @@ setup_file() {
 @test "durum: kurulu yazılımlar ve portlar" {
   krun kurulum_durum
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379" ]]
+  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu" ]] || false
 }
 
 @test "TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
