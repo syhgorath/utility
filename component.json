@@ -512,5 +512,85 @@
       "group": "redis",
       "description": "Küratörlü listede olmayan sürüm için 'redis:<sürüm>' (örn. redis:8.4.8); boş = listeden. Latest ve etiketsiz reddedilir. UYARI: listede olmayan sürüm denenmemiştir."
     }
+  ],
+  "settings": [
+    {
+      "id": "ntp_kaynaklari",
+      "label": "NTP sunucuları",
+      "var": "utility_ntp_servers",
+      "description": "utility.sources dosyasındaki kaynaklar (dağıtımın varsayılanları ayrıca kalır). Boş = dosyaya dokunulmaz (mevcut dosya silinmez).",
+      "apply_via": [
+        "ntp_ayarla"
+      ],
+      "state": {
+        "action": "ntp_durum",
+        "keys": [
+          "ntp_kaynak_1",
+          "ntp_kaynak_2",
+          "ntp_kaynak_3",
+          "ntp_kaynak_4",
+          "ntp_kaynak_5",
+          "ntp_kaynak_6",
+          "ntp_kaynak_7",
+          "ntp_kaynak_8"
+        ],
+        "compare": "set",
+        "strip_prefix": [
+          "server ",
+          "pool "
+        ]
+      }
+    },
+    {
+      "id": "ntp_saat_adimlama",
+      "label": "Tek seferlik saat adımlama",
+      "var": "utility_ntp_makestep",
+      "description": "Saat 1 sn'den fazla sapmışsa uygulama sırasında bir kez düzeltilir; sunucuda kalıcı ayar değildir.",
+      "risk": [
+        "time-jump"
+      ],
+      "apply_via": [
+        "ntp_ayarla"
+      ]
+    },
+    {
+      "id": "ntp_saat_kontrolcuden",
+      "label": "Saati kontrol makinesinden ayarla",
+      "var": "utility_ntp_clock_from_controller",
+      "description": "Chrony adımlamasından sonra fark hâlâ 300 sn'den büyükse sunucu saati kontrol makinesinin saatine ayarlanır. Chrony'ye yalnız şu durumda güvenilir: adımlama açıkken bayat bulunup yeniden başlatılmış ve saati bir kaynakla doğrulamış olmalı.",
+      "risk": [
+        "time-jump"
+      ],
+      "risk_note": "Kontrol makinesinin saati yanlışsa sunucu da yanlış olur.",
+      "apply_via": [
+        "ntp_ayarla"
+      ]
+    },
+    {
+      "id": "saat_dilimi",
+      "label": "Saat dilimi",
+      "var": "utility_timezone",
+      "description": "IANA adı (örn. Europe/Istanbul). Boş = dokunma.",
+      "apply_via": [
+        "apply"
+      ],
+      "state": {
+        "action": "durum",
+        "key": "timezone"
+      }
+    },
+    {
+      "id": "sistem_dili",
+      "label": "Sistem dili (LANG)",
+      "var": "utility_locale",
+      "description": "Yalnız LANG (örn. en_US.UTF-8). Boş = dokunma.",
+      "apply_via": [
+        "apply"
+      ],
+      "state": {
+        "action": "durum",
+        "key": "locale"
+      }
+    }
   ]
 }

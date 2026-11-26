@@ -36,6 +36,8 @@ Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `uti
 
 Kurulum çıktısı tek satırdır: `SSHPOCKET_RESULT utility.<eylem> yazilim=… mod=… surum=… port=… degisen=… yukseltme=… gizli=<üretilen parola sayısı>`. Parola değeri hiçbir satıra yazılmaz. **Envanter grubu `utility`** (eski kurulum grubu `kurulum` idi).
 
+**Ayar kartları (v0.2.1):** `component.json`'daki üst düzey `settings` alanı NTP sunucuları, saat adımlama, kontrol makinesinden saat, saat dilimi ve LANG için KeyLab'a kart tanımı verir (hangi değişken, hangi eylemle uygulanır, gerçek değer hangi durum anahtarından okunur). Paketin davranışını değiştirmez; kartları desteklemeyen KeyLab sürümleri alanı yok sayar. Boş NTP listesi sunucudaki `utility.sources`'a dokunmaz.
+
 ### NTP eylemleri (v0.2.0)
 - **Tek sahip:** yalnızca chrony yazılır (`/etc/chrony/sources.d/utility.sources`, `chrony.conf`'a dokunulmaz). `systemd-timesyncd`/`ntp`/`ntpsec` **kapatılmaz**: biri chrony ile birlikte etkinse `ntp_durum` bunu `hizmetler=a+b` ile gösterir, karar sizindir. Debian 13'te chrony kurulumu timesyncd'yi paket çakışmasıyla kaldırmıştı (v0.1.2 VM turu); Ubuntu 26.04'te birlikte davranışı **denenmedi**.
 - **Değişkenler:** mevcut `utility_ntp_servers`, `utility_ntp_makestep`, `utility_ntp_clock_from_controller` (yeni değişken yok).
