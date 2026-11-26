@@ -3,6 +3,10 @@
 kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis
 kurulum_mod: "native"               # native | docker (yazilim=docker iken yok sayılır)
 kurulum_ana_klasor: "/srv/homelab"
+# Uygulama başına mod: otomatik = genel kurulum_mod. Kurulu uygulamanın modu değiştirilemez (kaldir + kur).
+kurulum_nginx_mod: "otomatik"       # otomatik | native | docker
+kurulum_mariadb_mod: "otomatik"
+kurulum_redis_mod: "otomatik"
 kurulum_docker_kaynak: "resmi"      # resmi (download.docker.com apt deposu) | dagitim (docker.io)
 kurulum_docker_ag: "kurulum"        # docker uygulamalarının ortak ağı; docker uygulaması kuruluyken değiştirilemez (gerçek kaynak sunucudaki işaret)
 kurulum_dis_erisim: false           # eski genel seçim; yalnız kurulum_<yz>_erisim=otomatik iken etkili: false = 127.0.0.1; true = 0.0.0.0 (ufw'ye YAZILMAZ)

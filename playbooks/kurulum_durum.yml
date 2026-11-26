@@ -1,5 +1,5 @@
 # Salt okunur durum: ana klasör, Docker, kurulu yazılımlar ve portlar. Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
-# Sonuç satırı: SSHPOCKET_RESULT utility.kurulum_durum ana_durum=… docker=… kurulu=… portlar=… nginx_kurulu=evet|durmus|hayir|unknown nginx_mod=… nginx_port=… nginx_surum=… nginx_erisim=ic|sunucu|agdan|yok|unknown
+# Sonuç satırı: SSHPOCKET_RESULT utility.kurulum_durum ana_durum=… docker=… kurulu=… portlar=… <uyg>_kurulu=evet|durmus|hayir|unknown <uyg>_mod=… <uyg>_port=<N>|ic|yok|unknown <uyg>_surum=<etiket>|dagitim|yok <uyg>_erisim=ic|sunucu|agdan|yok|unknown (uyg: nginx, mariadb, redis) docker_servis=evet|durmus|yok|unknown
 - name: kurulum durum (salt okunur)
   hosts: utility
   gather_facts: true
@@ -18,8 +18,23 @@
       ansible.builtin.include_role: {name: docker_kontrol}
     - name: Listening ports
       ansible.builtin.include_role: {name: port_kaydi, tasks_from: durum}
-    - name: nginx (actual server state)
-      ansible.builtin.include_role: {name: nginx, tasks_from: durum}
+    - name: Applications (actual server state)
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/uygulama_durum.yml"
+      loop: [nginx, mariadb, redis]
+      loop_control:
+        loop_var: k_d_yz
+    - name: Docker service state
+      ansible.builtin.command: systemctl is-active docker
+      register: kurulum_docker_birim
+      changed_when: false
+      failed_when: false
+      check_mode: false
+    # snap / paket dışı Docker'ın birimi bilinmez: unknown
+    - name: Docker service summary
+      ansible.builtin.set_fact:
+        k_docker_servis: >-
+          {{ 'yok' if kurulum_docker_durum == 'yok'
+             else (('evet' if kurulum_docker_birim.stdout | trim == 'active' else 'durmus') if kurulum_docker_durum in ['resmi', 'dagitim'] else 'unknown') }}
     - name: Human-readable status
       ansible.builtin.debug:
         msg:
@@ -27,15 +42,28 @@
           - "docker: {{ kurulum_docker_durum }} (compose: {{ kurulum_docker_compose }})"
           - "kurulu: {{ k_isaret.yazilimlar | default({}) | dict2items | map(attribute='key') | list | join(', ') or '(yok)' }}"
           - "{{ k_durum_satirlari }}"
-          - "nginx (sunucudan okunan): kurulu={{ k_ng_kurulu }} mod={{ k_ng_mod }} port={{ k_ng_port }} sürüm={{ k_ng_surum }} erişim={{ k_ng_erisim }}"
+          - "docker hizmeti: {{ k_docker_servis }}"
+          - >-
+            {% for ad, d in k_st.items() %}{{ ad }} (sunucudan okunan): kurulu={{ d.kurulu }} mod={{ d.mod }} port={{ d.port }} sürüm={{ d.surum }}{{ ' (paket ' ~ d.paket ~ ')' if d.paket else '' }} erişim={{ d.erisim }}; {% endfor %}
     - name: Result line
       ansible.builtin.debug:
         msg: >-
           SSHPOCKET_RESULT utility.kurulum_durum ana_durum={{ kurulum_ana_durum }} docker={{ kurulum_docker_durum }}
           kurulu={{ k_kurulu_ozet | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           portlar={{ k_port_ozet | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
-          nginx_kurulu={{ k_ng_kurulu }}
-          nginx_mod={{ k_ng_mod }}
-          nginx_port={{ k_ng_port }}
-          nginx_surum={{ k_ng_surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
-          nginx_erisim={{ k_ng_erisim }}
+          nginx_kurulu={{ k_st.nginx.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_mod={{ k_st.nginx.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_port={{ k_st.nginx.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_surum={{ k_st.nginx.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_erisim={{ k_st.nginx.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_kurulu={{ k_st.mariadb.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_mod={{ k_st.mariadb.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_port={{ k_st.mariadb.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_surum={{ k_st.mariadb.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_erisim={{ k_st.mariadb.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redis_kurulu={{ k_st.redis.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redis_mod={{ k_st.redis.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redis_port={{ k_st.redis.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redis_surum={{ k_st.redis.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redis_erisim={{ k_st.redis.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          docker_servis={{ k_docker_servis }}

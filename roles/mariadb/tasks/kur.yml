@@ -39,12 +39,12 @@
         enabled: true
         state: started
       when: not ansible_check_mode
-    - name: Restart after a configuration change
-      ansible.builtin.systemd:
-        name: mariadb
-        state: restarted
-      when: not ansible_check_mode and kd_mariadb_conf is changed and kd_mariadb_paket is not changed
-      register: kd_mariadb_yeniden
+    - name: Apply and verify the listen address
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/dinleme_uygula.yml"
+      vars:
+        k_servis: mariadb
+        k_surec: mariadbd
+        k_dosya_degisti: "{{ kd_mariadb_conf is changed }}"
     - name: Connection keys (no secret, root uses unix_socket via sudo)
       ansible.builtin.include_role:
         name: env_dosyalari

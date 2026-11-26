@@ -5,6 +5,18 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 ## [Unreleased]
 
 ### Eklendi
+- **Sabit hedefli eylemler:** `docker_onizle/kur/yukselt`, `mariadb_onizle/kur/yukselt`, `redis_onizle/kur/yukselt` (`nginx_*` deseni). `docker_yukselt` **her zaman reddeder** (Docker taban yükseltmesi desteklenmez).
+- **Uygulama başına mod:** `kurulum_nginx_mod`, `kurulum_mariadb_mod`, `kurulum_redis_mod` (`otomatik` varsayılan = `kurulum_mod`; verilmezse davranış değişmez). Kurulu uygulamada mod değiştirilemez.
+- **`kurulum_durum`:** `mariadb_*` ve `redis_*` anahtarları (`kurulu|mod|port|surum|erisim`) ve `docker_servis` (toplam 20 anahtar).
+- **Ayar kartları:** `docker`, `mariadb`, `redis` (katalog kimlikleriyle aynı) ve nginx'e mod ayarı; `state.not_applicable` KeyLab'ın yeni sürümünü gerektirir.
+
+### Düzeltilen
+- **Native MariaDB ilk kurulumda port/erişim uygulanmıyordu (v0.1.0 ve v0.2.0 etkilenir):** paket servisi varsayılan ayarla (127.0.0.1:3306) başlatıyor, koşu başarılı bitiyor ve kayda istenen adresi yazıyordu. Artık native MariaDB ve Redis'te dinlenen adres sunucudan okunur, farklıysa servis yeniden başlatılır, uygulanamazsa koşu hata verir (dosya doğru ama servis eski adreste kalmış durum da düzelir).
+
+### Değişti
+- `kurulum_durum` değer sözleşmesi (yayımlanmamış nginx anahtarları): native `<uyg>_surum=dagitim` (önceden dpkg sürümü), yalnız iç ağda `<uyg>_port=ic` (önceden `yok`).
+
+### Eklendi
 - **Sabit hedefli nginx eylemleri:** `nginx_onizle`, `nginx_kur` (ön koşul `nginx_onizle`), `nginx_yukselt` (yıkıcı, sunucu adıyla onay). `kurulum_yazilim` bu eylemlerde etkisizdir; kurulu nginx'in modu korunur (`kurulum_mod` yalnız yeni kurulumda). Eylem sonuç satırı `utility.nginx_*`.
 - **`kurulum_durum` yeni anahtarlar** (sunucudaki gerçek durumdan; eski dört anahtar ve sıraları aynı): `nginx_kurulu` (`evet|durmus|hayir|unknown`), `nginx_mod`, `nginx_port`, `nginx_surum`, `nginx_erisim` (`ic|sunucu|agdan`); kurulu değilken `yok`, okunamazsa `unknown`.
 - **KeyLab nginx ayar kartı:** `setting_cards` `nginx` ve üç ayar (port, ağ erişimi, sürüm); `state.absent` / `state.ignore` KeyLab'ın yeni sürümünü gerektirir.

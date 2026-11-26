@@ -1,0 +1,22 @@
+# Sabit hedefli eylem (kurulum_onizle'in mariadb'e sabitlenmiş hali): kurulum_yazilim etkisizdir.
+# Sonuç satırı: SSHPOCKET_RESULT utility.mariadb_onizle yazilim=mariadb mod=… surum=… port=… degisen=<N> yukseltme=evet|hayir gizli=<N>
+- name: mariadb preview
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min, date_time]
+  become: true
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    k_sabit_yz: mariadb
+    kurulum_islem: kur
+  tasks:
+    - name: Flow
+      ansible.builtin.include_role: {name: ortak, tasks_from: akis}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.mariadb_onizle yazilim={{ k_yz }} mod={{ k_mod }}
+          surum={{ (k_surum | default(kurulum_docker_kaynak)) | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') }}
+          port={{ k_port | default(0) }} degisen={{ k_degisen | default(0) }}
+          yukseltme={{ 'evet' if k_yukseltme | default(false) | bool else 'hayir' }} gizli={{ k_gizli_uretilen | default([]) | length }}

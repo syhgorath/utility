@@ -28,7 +28,7 @@ Sunucu ayarları (eski `utility`; eylem adları, anahtarlar ve davranış **değ
 Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `utility.*`, `durum`/`preview` kurulum karşılıkları yeniden adlandırıldı):
 | Eylem | Etki | Onay | Ne yapar |
 |---|---|---|---|
-| `kurulum_durum` | salt okunur | – | Ana klasör işareti, Docker durumu, kurulu yazılımlar ve portlar: `ana_durum=… docker=… kurulu=… portlar=…` (eski `kurulum/durum`) ve nginx'in sunucudan okunan durumu: `nginx_kurulu=evet\|durmus\|hayir\|unknown nginx_mod=… nginx_port=… nginx_surum=… nginx_erisim=ic\|sunucu\|agdan` (kurulu değilken `yok`) |
+| `kurulum_durum` | salt okunur | – | Ana klasör işareti, Docker durumu, kurulu yazılımlar ve portlar: `ana_durum=… docker=… kurulu=… portlar=…` (eski `kurulum/durum`) ve nginx, MariaDB, Redis için sunucudan okunan durum: `<uyg>_kurulu=evet\|durmus\|hayir\|unknown <uyg>_mod=… <uyg>_port=<N>\|ic <uyg>_surum=<etiket>\|dagitim <uyg>_erisim=ic\|sunucu\|agdan` (kurulu değilken `yok`) ve `docker_servis=evet\|durmus\|yok\|unknown` |
 | `kurulum_onizle` | salt okunur (`--check --diff`) | – | `kur`'un aynı görevleri `--check` ile; `degisen=<N> yukseltme=evet\|hayir` (eski `kurulum/preview`; `kur`/`yukselt`/`kaldir` bunu ön koşul ister) |
 | `kur` | `installs-package`, `changes-config` | `yes-no`, `kurulum_onizle` ön koşul | Seçili yazılımı kurar. İkinci çalıştırma `changed=0`. **Sürümü sessizce değiştirmez** |
 | `yukselt` | + `destructive` | `type-server-name`, `kurulum_onizle` ön koşul | Yalnızca **docker** modunda, daha **yeni** sürüme; önce döküm/yedek. **Geri düşürme yok** |
@@ -36,12 +36,15 @@ Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `uti
 | `nginx_onizle` | salt okunur (`--check --diff`) | – | `kurulum_onizle`'nin nginx'e **sabitlenmiş** hali (`kurulum_yazilim` etkisiz) |
 | `nginx_kur` | `installs-package`, `changes-config` | `yes-no`, `nginx_onizle` ön koşul | nginx'i kurar ya da port/erişimi uygular. Kurulu nginx'in **modu korunur** (`kurulum_mod` yalnız yeni kurulumda); sürüm değiştirmez |
 | `nginx_yukselt` | + `destructive` | `type-server-name`, `nginx_onizle` ön koşul | Docker modunda kurulu nginx'i daha yeni sürüme yükseltir |
+| `docker_onizle` / `docker_kur` | `kurulum_onizle` / `kur` gibi | `docker_kur`: `yes-no`, `docker_onizle` ön koşul | Docker tabana sabit; Docker yoksa kurar, kuruluysa dokunmaz |
+| `docker_yukselt` | `changes-config` | `yes-no` | **Her zaman reddeder** (Docker taban yükseltmesi desteklenmez); hiçbir şey değiştirmez |
+| `mariadb_onizle` / `mariadb_kur` / `mariadb_yukselt`, `redis_onizle` / `redis_kur` / `redis_yukselt` | `nginx_*` ile aynı | aynı | Uygulamaya sabit; kurulu mod korunur; `*_yukselt` yalnız docker modunda (önce döküm/veri kopyası) |
 
 Kurulum çıktısı tek satırdır: `SSHPOCKET_RESULT utility.<eylem> yazilim=… mod=… surum=… port=… degisen=… yukseltme=… gizli=<üretilen parola sayısı>`. Parola değeri hiçbir satıra yazılmaz. **Envanter grubu `utility`** (eski kurulum grubu `kurulum` idi).
 
 **Ayar kartları (v0.2.1):** `component.json`'daki üst düzey `settings` alanı NTP sunucuları, saat adımlama, kontrol makinesinden saat, saat dilimi ve LANG için KeyLab'a kart tanımı verir (hangi değişken, hangi eylemle uygulanır, gerçek değer hangi durum anahtarından okunur). Ayarlar `setting_cards`'taki iki karta ayrılır: **Saat (NTP)** (üç NTP/saat ayarı) ve **Sistem** (saat dilimi, LANG). Saat kartı `ntp_durum`'dan bir sağlık özeti gösterir: uyarı yalnız senkron, sapma (1000 ms) ve kontrol makinesine farktan (300 sn) gelir; chrony ve seçili kaynak yalnız bilgidir. Paketin davranışını değiştirmez; kartları desteklemeyen KeyLab sürümleri bu alanları yok sayar. Boş NTP listesi sunucudaki `utility.sources`'a dokunmaz.
 
-**nginx yönetimi (KeyLab nginx kartı):** `nginx_*` eylemleri değer verilmeyen değişkeni **varsayılanına** döndürür (ör. port 8080'e); kurulu nginx'te port ya da erişim değişecekse çıktıda `DEĞİŞECEK` satırı görünür. Durum anahtarları sunucudan okunur (docker inspect ya da systemd + `ss` + `dpkg`); yalnız "bu paket yönetiyor mu" ve mod, sunucudaki kayıttan gelir. Port ve erişim yalnız nginx çalışırken bilinir (`unknown`), yalnız iç ağda `nginx_port=yok`. Native modda `nginx_surum` dağıtım paketi sürümüdür (`kurulum_nginx_surum` native'de etkisizdir).
+**Uygulama kartları (KeyLab docker, nginx, mariadb, redis):** `nginx_*`, `mariadb_*`, `redis_*` eylemleri değer verilmeyen değişkeni **varsayılanına** döndürür (ör. port 8080'e); kurulu uygulamada port ya da erişim değişecekse çıktıda `DEĞİŞECEK` satırı görünür. Uygulama başına mod `kurulum_<yz>_mod` (`otomatik` = `kurulum_mod`; kurulu uygulamanın modu değiştirilemez). Durum anahtarları sunucudan okunur (docker inspect ya da systemd + `ss` + `dpkg`); yalnız "bu paket yönetiyor mu" ve mod, sunucudaki kayıttan gelir. Port ve erişim yalnız uygulama çalışırken bilinir (değilse `unknown`), yalnız iç ağda `<uyg>_port=ic`. Native modda `<uyg>_surum=dagitim` (paket sürümü yalnız ekran çıktısında; `kurulum_<yz>_surum` native'de etkisizdir). Native servislerde `kur` istenen adres ve portun gerçekten dinlendiğini doğrular.
 
 ### NTP eylemleri (v0.2.0)
 - **Tek sahip:** yalnızca chrony yazılır (`/etc/chrony/sources.d/utility.sources`, `chrony.conf`'a dokunulmaz). `systemd-timesyncd`/`ntp`/`ntpsec` **kapatılmaz**: biri chrony ile birlikte etkinse `ntp_durum` bunu `hizmetler=a+b` ile gösterir, karar sizindir. Debian 13'te chrony kurulumu timesyncd'yi paket çakışmasıyla kaldırmıştı (v0.1.2 VM turu); Ubuntu 26.04'te birlikte davranışı **denenmedi**.
@@ -56,6 +59,7 @@ Kurulum değişkenleri:
 | Değişken | Tür | Varsayılan | Anlamı |
 |---|---|---|---|
 | `kurulum_yazilim` | enum | `docker` | `docker` (taban) · `nginx` · `mariadb` · `redis`. Eylemler seçili yazılım için çalışır |
+| `kurulum_<yz>_mod` | enum | `otomatik` | `otomatik` (= `kurulum_mod`) · `native` · `docker`; kurulu uygulamada değiştirilemez |
 | `kurulum_mod` | enum | `native` | `native` (apt) · `docker`. `docker` yazılımı için yok sayılır. Bir yazılım için **tek mod** |
 | `kurulum_ana_klasor` | path | `/srv/homelab` | Docker uygulamalarının klasörü; sunucu başına bir kez (aşağıda) |
 | `kurulum_docker_kaynak` | enum | `resmi` | `resmi` (download.docker.com) · `dagitim` (docker.io) |
