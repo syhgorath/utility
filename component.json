@@ -513,9 +513,22 @@
       "description": "Küratörlü listede olmayan sürüm için 'redis:<sürüm>' (örn. redis:8.4.8); boş = listeden. Latest ve etiketsiz reddedilir. UYARI: listede olmayan sürüm denenmemiştir."
     }
   ],
+  "setting_cards": [
+    {
+      "id": "saat",
+      "label": "Saat (NTP)",
+      "description": "chrony ile saat eşitleme."
+    },
+    {
+      "id": "sistem",
+      "label": "Sistem",
+      "description": "Saat dilimi ve sistem dili (işletim sistemi ayarları)."
+    }
+  ],
   "settings": [
     {
       "id": "ntp_kaynaklari",
+      "card": "saat",
       "label": "NTP sunucuları",
       "var": "utility_ntp_servers",
       "description": "utility.sources dosyasındaki kaynaklar (dağıtımın varsayılanları ayrıca kalır). Boş = dosyaya dokunulmaz (mevcut dosya silinmez).",
@@ -543,6 +556,7 @@
     },
     {
       "id": "ntp_saat_adimlama",
+      "card": "saat",
       "label": "Tek seferlik saat adımlama",
       "var": "utility_ntp_makestep",
       "description": "Saat 1 sn'den fazla sapmışsa uygulama sırasında bir kez düzeltilir; sunucuda kalıcı ayar değildir.",
@@ -555,6 +569,7 @@
     },
     {
       "id": "ntp_saat_kontrolcuden",
+      "card": "saat",
       "label": "Saati kontrol makinesinden ayarla",
       "var": "utility_ntp_clock_from_controller",
       "description": "Chrony adımlamasından sonra fark hâlâ 300 sn'den büyükse sunucu saati kontrol makinesinin saatine ayarlanır. Chrony'ye yalnız şu durumda güvenilir: adımlama açıkken bayat bulunup yeniden başlatılmış ve saati bir kaynakla doğrulamış olmalı.",
@@ -568,6 +583,7 @@
     },
     {
       "id": "saat_dilimi",
+      "card": "sistem",
       "label": "Saat dilimi",
       "var": "utility_timezone",
       "description": "IANA adı (örn. Europe/Istanbul). Boş = dokunma.",
@@ -581,6 +597,7 @@
     },
     {
       "id": "sistem_dili",
+      "card": "sistem",
       "label": "Sistem dili (LANG)",
       "var": "utility_locale",
       "description": "Yalnız LANG (örn. en_US.UTF-8). Boş = dokunma.",
