@@ -1,0 +1,80 @@
+# nginx'in SUNUCUDAKİ gerçek durumu (salt okunur, --check'te de çalışır). Yalnız "bu paket yönetiyor mu" ve "mod" işaret dosyasından; port, erişim, sürüm,
+# çalışma durumu docker'dan / systemd, ss ve dpkg'den okunur (işaret gerçeği yansıtmayabilir). Girdi: k_isaret. Sonuç: k_ng_kurulu|mod|port|surum|erisim.
+#   kurulu: hayir (yönetilmiyor) | evet (çalışıyor) | durmus | unknown (docker hizmetine ulaşılamıyor). port/erisim yalnız çalışırken bilinir.
+#   iç ağ: erisim=ic, port=yok. Okunamayan: unknown.
+- name: Read the managed nginx entry
+  ansible.builtin.set_fact:
+    k_ng_kayit_mod: "{{ (k_isaret.yazilimlar | default({})).get('nginx', {}).get('mod', '') }}"
+
+- name: Defaults for an unmanaged nginx
+  ansible.builtin.set_fact:
+    k_ng_kurulu: "hayir"
+    k_ng_mod: "yok"
+    k_ng_port: "yok"
+    k_ng_surum: "yok"
+    k_ng_erisim: "yok"
+
+- name: Docker mode
+  when: k_ng_kayit_mod == 'docker'
+  block:
+    - name: Inspect the nginx container
+      ansible.builtin.command: >-
+        docker inspect -f '{% raw %}{{.State.Status}}|{{.Config.Image}}|{{json .HostConfig.PortBindings}}{% endraw %}' kurulum-nginx
+      register: kurulum_ng_docker
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # konteyner yoksa "durmus"; docker'a ulaşılamıyorsa hiçbir iddiada bulunulmaz
+    - name: Evaluate the container
+      ansible.builtin.set_fact:
+        k_ng_mod: "docker"
+        k_ng_kurulu: >-
+          {{ ('evet' if k_ng_alan[0] == 'running' else 'durmus') if kurulum_ng_docker.rc == 0
+             else ('durmus' if 'no such object' in (kurulum_ng_docker.stderr | default('') | lower) else 'unknown') }}
+        k_ng_surum: "{{ k_ng_alan[1].split(':')[-1] if kurulum_ng_docker.rc == 0 else 'unknown' }}"
+        k_ng_port: "unknown"
+        k_ng_erisim: "unknown"
+      vars:
+        k_ng_alan: "{{ (kurulum_ng_docker.stdout | default('')).split('|') }}"
+
+    - name: Published address of a running container
+      ansible.builtin.set_fact:
+        k_ng_port: "{{ k_ng_bag[0].HostPort if k_ng_bag | length > 0 else 'yok' }}"
+        k_ng_erisim: >-
+          {{ 'ic' if k_ng_bag | length == 0 else ('sunucu' if k_ng_bag | map(attribute='HostIp') | reject('in', ['127.0.0.1', '::1']) | list | length == 0 else 'agdan') }}
+      vars:
+        k_ng_bag: "{{ ((kurulum_ng_docker.stdout.split('|')[2] | from_json) or {}).get('80/tcp', []) or [] }}"
+      when: k_ng_kurulu == 'evet'
+
+# Native: yönetilen port sitedeki listen satırından; erişim o portta nginx'in GERÇEKTEN dinlediği adreslerden
+- name: Native mode
+  when: k_ng_kayit_mod == 'native'
+  block:
+    - name: Read the nginx service, package and listeners
+      ansible.builtin.shell: |
+        set -u
+        echo "servis=$(systemctl is-active nginx 2>/dev/null)"
+        echo "surum=$(dpkg-query -W -f '${db:Status-Abbrev} ${Version}' nginx 2>/dev/null | awk '$1=="ii"{print $2}')"
+        p=$(sed -n 's/^[[:space:]]*listen[[:space:]].*:\([0-9][0-9]*\).*/\1/p' /etc/nginx/sites-available/kurulum 2>/dev/null | head -n1)
+        echo "port=$p"
+        echo "dinleyen=$(ss -ltnpH | awk '/"nginx"/ {print $4}' | { grep -E ":${p:-0}\$" || true; } | sort -u | tr '\n' ' ')"
+      args:
+        executable: /bin/bash
+      register: kurulum_ng_native
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Evaluate the native service
+      ansible.builtin.set_fact:
+        k_ng_mod: "native"
+        k_ng_kurulu: "{{ 'evet' if k_ng_satir.servis == 'active' else 'durmus' }}"
+        k_ng_surum: "{{ k_ng_satir.surum or 'unknown' }}"
+        k_ng_port: "{{ k_ng_satir.port if k_ng_calisan else 'unknown' }}"
+        k_ng_erisim: >-
+          {{ ('sunucu' if k_ng_adresler | reject('search', '^127[.]|::1]') | list | length == 0 else 'agdan') if k_ng_calisan else 'unknown' }}
+      vars:
+        k_ng_satir: "{{ dict(kurulum_ng_native.stdout_lines | map('regex_replace', '^([a-z]+)=.*$', '\\1') | zip(kurulum_ng_native.stdout_lines | map('regex_replace', '^[a-z]+=', ''))) }}"
+        k_ng_adresler: "{{ (k_ng_satir.dinleyen | trim).split() }}"
+        k_ng_calisan: "{{ k_ng_satir.servis == 'active' and k_ng_adresler | length > 0 }}"

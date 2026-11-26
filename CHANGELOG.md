@@ -5,6 +5,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 ## [Unreleased]
 
 ### Eklendi
+- **Sabit hedefli nginx eylemleri:** `nginx_onizle`, `nginx_kur` (ön koşul `nginx_onizle`), `nginx_yukselt` (yıkıcı, sunucu adıyla onay). `kurulum_yazilim` bu eylemlerde etkisizdir; kurulu nginx'in modu korunur (`kurulum_mod` yalnız yeni kurulumda). Eylem sonuç satırı `utility.nginx_*`.
+- **`kurulum_durum` yeni anahtarlar** (sunucudaki gerçek durumdan; eski dört anahtar ve sıraları aynı): `nginx_kurulu` (`evet|durmus|hayir|unknown`), `nginx_mod`, `nginx_port`, `nginx_surum`, `nginx_erisim` (`ic|sunucu|agdan`); kurulu değilken `yok`, okunamazsa `unknown`.
+- **KeyLab nginx ayar kartı:** `setting_cards` `nginx` ve üç ayar (port, ağ erişimi, sürüm); `state.absent` / `state.ignore` KeyLab'ın yeni sürümünü gerektirir.
+- Kurulu uygulamada yayın portu ya da erişimi değişecekse `kur`/önizleme çıktısında `DEĞİŞECEK` uyarısı.
 - **Uygulama başına ağ erişimi:** `kurulum_nginx_erisim`, `kurulum_mariadb_erisim`, `kurulum_redis_erisim` = `otomatik` (varsayılan) | `ic` (yalnız iç ağ: port yayınlanmaz, port denetimi yapılmaz, ortak `.env`'de `<YZ>_HOST_PORT` silinir; yalnız docker modu, native'de reddedilir) | `sunucu` (127.0.0.1) | `agdan` (0.0.0.0). `kurulum_dis_erisim` yalnız `otomatik` iken etkilidir.
 - **İç ağ adı:** `kurulum_docker_ag` (varsayılan `kurulum`). Docker uygulaması kuruluyken ad değişimi reddedilir; kayıtlı ad sunucudaki işarettedir (`docker_ag`) ve `.env`'deki `KURULUM_DOCKER_AG` güncel tutulur. Aynı adlı mevcut ağ bridge değilse reddedilir; bridge ise katılınır.
 

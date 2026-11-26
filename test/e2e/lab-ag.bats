@@ -59,7 +59,7 @@ setup_file() {
   [ "$(isaret nginx erisim)" = sunucu ]
   [ "$(env_satiri NGINX_HOST_PORT)" = "NGINX_HOST_PORT=8080" ]
   krun kurulum_durum
-  [[ "$(result)" == *" portlar=nginx:8080" ]] || false
+  [[ "$(result)" == *" portlar=nginx:8080 nginx_kurulu=evet "* ]] || false
 }
 
 @test "iç ağda port denetimi yapılmaz: başka uygulamanın portu verilse de kur geçer" {

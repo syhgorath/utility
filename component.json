@@ -206,7 +206,12 @@
           "ana_durum",
           "docker",
           "kurulu",
-          "portlar"
+          "portlar",
+          "nginx_kurulu",
+          "nginx_mod",
+          "nginx_port",
+          "nginx_surum",
+          "nginx_erisim"
         ]
       }
     },
@@ -316,6 +321,93 @@
       "outputs": {
         "format": "keyvalue-line",
         "prefix": "SSHPOCKET_RESULT utility.kaldir",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "nginx_onizle": {
+      "cmd": "ansible-playbook playbooks/nginx_onizle.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur (--check --diff): nginx_kur'un ne yapacağını gösterir; paket, imaj, konteyner ve servis işlemleri çalışmaz.",
+        "Hedef sabittir: nginx (kurulum_yazilim etkisiz). Kurulu nginx'in modu (native/docker) korunur; kurulum_mod yalnız yeni kurulumda geçerlidir.",
+        "Değer verilmeyen değişken varsayılanına döner (ör. port 8080, sürüm 1.30.6): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.nginx_onizle",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "nginx_kur": {
+      "cmd": "ansible-playbook playbooks/nginx_kur.yml",
+      "effects": [
+        "installs-package",
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "nginx_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "nginx'i kurar ya da port ve erişim ayarını uygular; servis kısa süre kesilebilir. Kurulu docker sürümünü DEĞİŞTİRMEZ (nginx_yukselt).",
+        "Hedef sabittir: nginx (kurulum_yazilim etkisiz). Kurulu nginx'in modu (native/docker) korunur; kurulum_mod yalnız yeni kurulumda geçerlidir.",
+        "Değer verilmeyen değişken varsayılanına döner (ör. port 8080, sürüm 1.30.6): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "'agdan' docker modunda ufw'ye takılmaz (ağdaki herkese açık). Native'de erişim değişince nginx yeniden başlar; docker'da konteyner yeniden yaratılır."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.nginx_kur",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "nginx_yukselt": {
+      "cmd": "ansible-playbook playbooks/nginx_yukselt.yml",
+      "effects": [
+        "installs-package",
+        "changes-config",
+        "destructive"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "nginx_onizle"
+      ],
+      "confirm": "type-server-name",
+      "warnings": [
+        "Yalnızca docker modunda kurulu nginx daha YENİ bir küratörlü sürüme yükseltilir; önce web kökü ve compose yedeği alınır. GERİ DÜŞÜRME YOKTUR.",
+        "Hedef sabittir: nginx (kurulum_yazilim etkisiz). Kurulu nginx'in modu (native/docker) korunur; kurulum_mod yalnız yeni kurulumda geçerlidir.",
+        "O anki port ve erişim değerleri de uygulanır. Değer verilmeyen değişken varsayılanına döner (ör. port 8080, sürüm 1.30.6): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yükseltme sırasında servis yeniden başlar (kısa kesinti)."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.nginx_yukselt",
         "keys": [
           "yazilim",
           "mod",
@@ -599,6 +691,24 @@
       "id": "sistem",
       "label": "Sistem",
       "description": "Saat dilimi ve sistem dili (işletim sistemi ayarları)."
+    },
+    {
+      "id": "nginx",
+      "label": "nginx",
+      "description": "Kurulu nginx'in portu, ağ erişimi ve sürümü.",
+      "summary": {
+        "action": "kurulum_durum",
+        "items": [
+          {
+            "key": "nginx_kurulu",
+            "label": "Kurulu"
+          },
+          {
+            "key": "nginx_mod",
+            "label": "Mod"
+          }
+        ]
+      }
     }
   ],
   "settings": [
@@ -683,6 +793,63 @@
       "state": {
         "action": "durum",
         "key": "locale"
+      }
+    },
+    {
+      "id": "nginx_port",
+      "card": "nginx",
+      "label": "Port",
+      "var": "kurulum_nginx_port",
+      "description": "nginx'in yayınlandığı port. Değer verilmezse 8080 uygulanır. Yalnız iç ağda port yoktur.",
+      "apply_via": [
+        "nginx_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "nginx_port",
+        "absent": "yok"
+      }
+    },
+    {
+      "id": "nginx_erisim",
+      "card": "nginx",
+      "label": "Ağ erişimi",
+      "var": "kurulum_nginx_erisim",
+      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik = mevcut durum korunur.",
+      "risk": [
+        "restarts-service"
+      ],
+      "risk_note": "'agdan' portu ağdaki herkese açar; Docker yayını ufw'ye takılmaz. Erişim değişince nginx yeniden başlar.",
+      "apply_via": [
+        "nginx_kur"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "nginx_erisim",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
+      "id": "nginx_surum",
+      "card": "nginx",
+      "label": "Sürüm",
+      "var": "kurulum_nginx_surum",
+      "description": "Docker imaj sürümü; kurulu sürümü yalnız nginx_yukselt yükseltir. Değer verilmezse 1.30.6. Native modda etkisizdir.",
+      "risk": [
+        "restarts-service"
+      ],
+      "risk_note": "Yükseltme (nginx_yukselt) geri alınamaz: geri düşürme yoktur; servis kısa süre kesilir.",
+      "apply_via": [
+        "nginx_kur",
+        "nginx_yukselt"
+      ],
+      "state": {
+        "action": "kurulum_durum",
+        "key": "nginx_surum",
+        "absent": "yok"
       }
     }
   ]
