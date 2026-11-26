@@ -517,7 +517,37 @@
     {
       "id": "saat",
       "label": "Saat (NTP)",
-      "description": "chrony ile saat eşitleme."
+      "description": "chrony ile saat eşitleme.",
+      "summary": {
+        "action": "ntp_durum",
+        "items": [
+          {
+            "key": "ntp_senkron",
+            "label": "Senkron",
+            "ok": "yes"
+          },
+          {
+            "key": "ntp_servis",
+            "label": "chrony"
+          },
+          {
+            "key": "sapma_ms",
+            "label": "Sapma",
+            "max_abs": 1000,
+            "unit": "ms"
+          },
+          {
+            "key": "secili_kaynak",
+            "label": "Seçili kaynak"
+          },
+          {
+            "key": "saat_sapma_kontrolcuye_gore_sn",
+            "label": "Kontrol makinesine fark",
+            "max_abs": 300,
+            "unit": "sn"
+          }
+        ]
+      }
     },
     {
       "id": "sistem",
