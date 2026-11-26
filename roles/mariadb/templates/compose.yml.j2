@@ -7,8 +7,10 @@ services:
     env_file: .env
     environment:
       MARIADB_AUTO_UPGRADE: "1"
+{% if k_erisim != 'ic' %}
     ports:
       - "{{ k_bind }}:{{ k_port }}:3306"
+{% endif %}
     volumes:
       - ./data:/var/lib/mysql
     healthcheck:

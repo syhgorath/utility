@@ -6,8 +6,10 @@ services:
     restart: unless-stopped
     env_file: .env
     command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
+{% if k_erisim != 'ic' %}
     ports:
       - "{{ k_bind }}:{{ k_port }}:6379"
+{% endif %}
     volumes:
       - ./data:/data
     healthcheck:

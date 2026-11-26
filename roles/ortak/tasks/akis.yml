@@ -38,7 +38,7 @@
           ansible.builtin.include_role:
             name: port_kaydi
             tasks_from: kontrol
-          when: kurulum_islem in ['kur', 'yukselt']
+          when: kurulum_islem in ['kur', 'yukselt'] and k_erisim != 'ic'   # yayınlanmayan portun çakışması olmaz
 
         - name: Docker mode needs a usable Docker (install it first with kurulum_yazilim=docker)
           ansible.builtin.assert:

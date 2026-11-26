@@ -5,6 +5,7 @@
     path: "{{ k_ana }}/.env"
     regexp: "^{{ item.key }}="
     line: "{{ item.key }}={{ item.value }}"
+    state: "{{ item.state | default('present') }}"
     create: false
     owner: root
     group: root
@@ -12,7 +13,9 @@
   loop:
     - { key: "{{ k_yz | upper }}_HOST", value: "{{ k_yz if k_mod == 'docker' else '127.0.0.1' }}" }
     - { key: "{{ k_yz | upper }}_PORT", value: "{{ k_katalog.konteyner_port if k_mod == 'docker' else k_port }}" }
-    - { key: "{{ k_yz | upper }}_HOST_PORT", value: "{{ k_port }}" }
+    # iç ağda yayınlanan port yoktur: satır boş ya da 0 yazılmaz, SİLİNİR
+    - { key: "{{ k_yz | upper }}_HOST_PORT", value: "{{ k_port }}", state: "{{ 'absent' if k_erisim == 'ic' else 'present' }}" }
+    - { key: "KURULUM_DOCKER_AG", value: "{{ k_docker_ag }}" }
   loop_control:
     label: "{{ item.key }}"
   register: kd_env_baglanti

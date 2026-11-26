@@ -4,7 +4,12 @@ kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis
 kurulum_mod: "native"               # native | docker (yazilim=docker iken yok sayılır)
 kurulum_ana_klasor: "/srv/homelab"
 kurulum_docker_kaynak: "resmi"      # resmi (download.docker.com apt deposu) | dagitim (docker.io)
-kurulum_dis_erisim: false           # false = 127.0.0.1; true = 0.0.0.0 (ufw'ye YAZILMAZ, öneri gösterilir)
+kurulum_docker_ag: "kurulum"        # docker uygulamalarının ortak ağı; docker uygulaması kuruluyken değiştirilemez (gerçek kaynak sunucudaki işaret)
+kurulum_dis_erisim: false           # eski genel seçim; yalnız kurulum_<yz>_erisim=otomatik iken etkili: false = 127.0.0.1; true = 0.0.0.0 (ufw'ye YAZILMAZ)
+# Uygulama başına ağ erişimi: otomatik | ic (yalnız iç ağ, port yayınlanmaz; yalnız docker) | sunucu (127.0.0.1) | agdan (0.0.0.0). Çözümleme: yazilim_koruma.yml
+kurulum_nginx_erisim: "otomatik"
+kurulum_mariadb_erisim: "otomatik"
+kurulum_redis_erisim: "otomatik"
 kurulum_nginx_port: 8080
 kurulum_nginx_surum: "1.30.6"
 kurulum_nginx_imaj_ozel: ""
@@ -19,7 +24,6 @@ kurulum_redis_imaj_ozel: ""
 kurulum_supported_os: { Ubuntu: ["26.04"] }
 kurulum_planned_os: { Debian: ["13"] }
 kurulum_surumi: "0.1.0"
-kurulum_docker_ag: "kurulum"
 kurulum_saat_esigi_sn: 3600          # sunucu/kontrol makinesi saat farkı bunu aşarsa UYARI (koşu durmaz)
 kurulum_kilit: /run/kurulum.lock
 kurulum_yasak_kokler: ["/", "/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/dev", "/proc", "/sys", "/run", "/var", "/root", "/home", "/tmp", "/opt", "/srv", "/mnt", "/media", "/snap"]

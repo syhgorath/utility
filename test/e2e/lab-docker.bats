@@ -60,7 +60,7 @@ setup_file() {
 }
 
 @test "mariadb docker 10.11.19: kur, parola sunucuda 0600, ikinci kur changed=0, veri yazılır" {
-  krun kur -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=10.11.19
+  krun kur -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=10.11.19 -e kurulum_mariadb_erisim=sunucu   # yeni docker kurulumu otomatik=iç ağ; bu testler yayınlı kurulumu sınar
   [ "$status" -eq 0 ]
   [[ "$(result)" == *"yazilim=mariadb mod=docker surum=10.11.19 port=3306 "*"gizli=1" ]]
   run lab sh -c 'stat -c "%a" /srv/homelab/mariadb/.env; grep -c "^MARIADB_ROOT_PASSWORD=" /srv/homelab/mariadb/.env'
@@ -98,7 +98,7 @@ setup_file() {
 }
 
 @test "redis docker 7.2.17: kur, ikinci kur changed=0; YÜKSELTME 7.4.12: anahtar duruyor" {
-  krun kur -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.2.17
+  krun kur -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.2.17 -e kurulum_redis_erisim=sunucu
   [ "$status" -eq 0 ]
   krun kur -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.2.17
   [ "$(recap_changed)" = 0 ]
@@ -167,7 +167,7 @@ setup_file() {
   [ "${lines[0]}" = 0 ] && [ "${lines[1]}" = kaldi ]
   krun kaldir -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
   [ "$(recap_changed)" = 0 ]
-  krun kur -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
+  krun kur -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13 -e kurulum_mariadb_erisim=sunucu   # kaldır sonrası yeniden kurulum "yeni" sayılır
   [ "$status" -eq 0 ]
   [[ "$(result)" == *"gizli=0" ]]
   run lab sh -c 'grep -c "^MARIADB_" /srv/homelab/.env'

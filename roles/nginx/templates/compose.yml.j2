@@ -4,8 +4,10 @@ services:
     image: {{ k_imaj }}
     container_name: kurulum-nginx
     restart: unless-stopped
+{% if k_erisim != 'ic' %}
     ports:
       - "{{ k_bind }}:{{ k_port }}:80"
+{% endif %}
     volumes:
       - ./data/www:/usr/share/nginx/html:ro
     healthcheck:

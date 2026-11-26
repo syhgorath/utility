@@ -4,6 +4,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+### Eklendi
+- **Uygulama başına ağ erişimi:** `kurulum_nginx_erisim`, `kurulum_mariadb_erisim`, `kurulum_redis_erisim` = `otomatik` (varsayılan) | `ic` (yalnız iç ağ: port yayınlanmaz, port denetimi yapılmaz, ortak `.env`'de `<YZ>_HOST_PORT` silinir; yalnız docker modu, native'de reddedilir) | `sunucu` (127.0.0.1) | `agdan` (0.0.0.0). `kurulum_dis_erisim` yalnız `otomatik` iken etkilidir.
+- **İç ağ adı:** `kurulum_docker_ag` (varsayılan `kurulum`). Docker uygulaması kuruluyken ad değişimi reddedilir; kayıtlı ad sunucudaki işarettedir (`docker_ag`) ve `.env`'deki `KURULUM_DOCKER_AG` güncel tutulur. Aynı adlı mevcut ağ bridge değilse reddedilir; bridge ise katılınır.
+
+### Değişti
+- **Davranış değişikliği (yalnız YENİ kurulum):** docker modunda yeni MariaDB ve Redis kurulumu artık **port yayınlamaz** (`127.0.0.1:3306` / `127.0.0.1:6379` açılmaz). Eski davranış için `kurulum_mariadb_erisim=sunucu` / `kurulum_redis_erisim=sunucu`. **Kurulu uygulamalar değişmez** (konteyner yeniden yaratılmaz; ilk `kur` yalnız sunucudaki kayda `erisim` ve `docker_ag` alanlarını ekler). `kaldir` sonrası yeniden kurulum "yeni" sayılır.
+- **ufw uyarısı moda göre:** Docker yayınında artık ufw kuralı önerilmez; Docker'ın yayınladığı portun ufw'ye takılmadığı söylenir. Native `agdan`'da kural önerisi sürer.
+- LAB'da sınandı (`test/e2e/lab-ag.bats`); gerçek VM'de **denenmedi**.
+
 ## [0.2.1] - 2026-11-21
 
 ### Eklendi

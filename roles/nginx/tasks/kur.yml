@@ -140,4 +140,4 @@
         name: ana_klasor
         tasks_from: isaret_yaz
       vars:
-        k_kayit: { mod: native, surum: dagitim, port: "{{ k_port | int }}", bind: "{{ k_bind }}", veri_yolu: "{{ k_katalog.native_veri }}" }
+        k_kayit: { mod: native, surum: dagitim, port: "{{ k_port | int }}", bind: "{{ k_bind }}", erisim: "{{ k_erisim }}", veri_yolu: "{{ k_katalog.native_veri }}" }

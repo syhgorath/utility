@@ -31,7 +31,7 @@ setup_file() {
   [ "$status" -eq 0 ]
   krun kur "${D[@]}" -e kurulum_nginx_port=8081
   [ "$status" -eq 0 ]
-  krun kur -e kurulum_yazilim=redis -e kurulum_mod=docker
+  krun kur -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_erisim=sunucu   # kayıtlı port gerekir (otomatik = iç ağ, port kaydedilmez)
   [ "$status" -eq 0 ]
   lab docker stop kurulum-redis
   [ "$(dinleyen 6379)" = "" ]
