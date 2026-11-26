@@ -6,3 +6,6 @@ __pycache__/
 
 # Yerel MCP ayarı (GitArc vb.); depoya girmez
 .mcp.json
+
+# Sıkılaştırılmış geçici LAB test kopyaları (yerel koşu artığı)
+test/e2e/zz-gecici-*
