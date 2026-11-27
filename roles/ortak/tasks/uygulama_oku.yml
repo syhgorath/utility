@@ -1,0 +1,19 @@
+# Tek uygulamanın okuması (<uyg>_durum eylemleri; salt okunur). Yalnız ana klasör işareti ve k_d_yz uygulaması okunur: diğer uygulamalara,
+# Docker tabanına ve port listesine bakılmaz. Girdi: k_d_yz. Sonuç: kurulum_ana_durum, k_st[k_d_yz]. Sonuç satırını playbook yazar.
+- name: Preflight
+  ansible.builtin.include_tasks: preflight.yml
+
+- name: Ana klasör
+  ansible.builtin.include_role:
+    name: ana_klasor
+    tasks_from: kontrol
+
+- name: Application facts (actual server state)
+  ansible.builtin.include_tasks: uygulama_durum.yml
+
+- name: Human-readable status
+  ansible.builtin.debug:
+    msg:
+      - "ana klasör (sunucu): {{ k_ana_sunucu or '(yok)' }}; istenen: {{ k_ana }}; durum: {{ kurulum_ana_durum }}"
+      - >-
+        {% set d = k_st[k_d_yz] %}{{ k_d_yz }} (sunucudan okunan): kurulu={{ d.kurulu }} mod={{ d.mod }} port={{ d.port }} sürüm={{ d.surum }}{{ ' (paket ' ~ d.paket ~ ')' if d.paket else '' }} erişim={{ d.erisim }}

@@ -1,0 +1,26 @@
+# Salt okunur MariaDB durumu: yalnız ana klasör işareti ve MariaDB okunur (genel özet: kurulum_durum). Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
+# Sonuç satırı: SSHPOCKET_RESULT utility.mariadb_durum ana_durum=… mariadb_kurulu=evet|durmus|hayir|unknown mariadb_mod=… mariadb_port=<N>|ic|yok|unknown mariadb_surum=<etiket>|dagitim|yok|unknown mariadb_erisim=ic|sunucu|agdan|yok|unknown
+- name: mariadb durum (salt okunur)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min, date_time]
+  become: true
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    kurulum_islem: durum
+    # ön kontrol kurulum değişkenlerine (kurulum_yazilim, özel imaj) bağlı olmasın: yazılım türetmesi atlanır
+    k_sabit_yz: docker
+    k_d_yz: mariadb
+  tasks:
+    - name: Read mariadb
+      ansible.builtin.include_role: {name: ortak, tasks_from: uygulama_oku}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.mariadb_durum ana_durum={{ kurulum_ana_durum }}
+          mariadb_kurulu={{ k_st.mariadb.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_mod={{ k_st.mariadb.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_port={{ k_st.mariadb.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_surum={{ k_st.mariadb.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_erisim={{ k_st.mariadb.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}

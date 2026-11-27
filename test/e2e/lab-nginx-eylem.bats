@@ -1,14 +1,14 @@
 #!/usr/bin/env bats
-# LAB e2e: sabit hedefli nginx eylemleri (nginx_onizle, nginx_kur, nginx_yukselt) ve kurulum_durum'un nginx_* anahtarları (SUNUCUDAKİ gerçek durumdan).
+# LAB e2e: sabit hedefli nginx eylemleri (nginx_onizle, nginx_kur, nginx_yukselt) ve nginx_durum anahtarları (SUNUCUDAKİ gerçek durumdan).
 # SIRALI testler. Gerçek VM yerine GEÇMEZ. Ağda TLS'i araya giren yazılım varsa: LAB_CA_FILE=<kök sertifika.pem>
 # DİKKAT: macOS bash 3.2 ile bats, testin ortasındaki başarısız [[ ]] ifadesini YOK SAYAR; bu yüzden her [[ ]] "|| false" ile biter.
 load ortak
 
 # anahtar <ad>: son sonuç satırındaki değer (anahtar yoksa "-")
 anahtar() { local v; v=$(result | tr ' ' '\n' | sed -n "s/^$1=//p"); echo "${v:--}"; }
-# nginx_beklenen <kurulu> <mod> <port> <surum> <erisim>: kurulum_durum koşar ve beş anahtarı denetler
+# nginx_beklenen <kurulu> <mod> <port> <surum> <erisim>: nginx_durum koşar ve beş anahtarı denetler
 nginx_beklenen() {
-  krun kurulum_durum
+  krun nginx_durum
   [ "$status" -eq 0 ] || return 1
   [ "$(recap_changed)" = 0 ] || return 1
   local g
@@ -26,6 +26,7 @@ setup_file() {
 
 @test "durum (temiz sunucu): nginx_kurulu=hayir, diğer nginx anahtarları yok; eski anahtarlar yerinde ve önde" {
   nginx_beklenen hayir yok yok yok yok
+  krun kurulum_durum
   [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir "* ]] || false
 }
 
@@ -142,9 +143,9 @@ setup_file() {
   nginx_beklenen evet native 8081 dagitim sunucu
 }
 
-@test "sonuç satırı sözleşmesi: 20 anahtar, her değer en çok 64 karakter ve yalnız izinli karakterler" {
-  krun kurulum_durum
-  [ "$(result | tr ' ' '\n' | grep -c '=')" = 20 ]
+@test "sonuç satırı sözleşmesi (nginx_durum): 6 anahtar, her değer en çok 64 karakter ve yalnız izinli karakterler" {
+  krun nginx_durum
+  [ "$(result | tr ' ' '\n' | grep -c '=')" = 6 ]
   run bash -c "printf '%s\n' '$(result)' | tr ' ' '\n' | sed -n 's/^[a-z_]*=//p' | grep -vE '^[A-Za-z0-9_.:+-]{1,64}\$' | wc -l | tr -d ' '"
   [ "$output" = 0 ]
 }

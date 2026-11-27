@@ -1,0 +1,27 @@
+# Salt okunur Docker tabanı durumu: yalnız Docker paketi ve hizmeti okunur (işaret dosyası ve uygulamalar okunmaz). Hiçbir şey değiştirmez, sudo gerektirmez.
+# Sonuç satırı: SSHPOCKET_RESULT utility.docker_durum docker_kurulu=evet|durmus|hayir|unknown docker_servis=evet|durmus|yok|unknown docker=yok|resmi|dagitim|snap|diger
+- name: docker durum (salt okunur)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min, date_time]
+  become: false
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    kurulum_islem: durum
+    k_sabit_yz: docker
+  tasks:
+    - name: Preflight
+      ansible.builtin.include_role: {name: ortak, tasks_from: preflight}
+    - name: Docker
+      ansible.builtin.include_role: {name: docker_kontrol}
+    - name: Docker service
+      ansible.builtin.include_role: {name: ortak, tasks_from: docker_servis}
+    - name: Human-readable status
+      ansible.builtin.debug:
+        msg: "docker: {{ kurulum_docker_durum }} (compose: {{ kurulum_docker_compose }}); kurulu: {{ k_docker_kurulu }}; hizmet: {{ k_docker_servis }}"
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.docker_durum docker_kurulu={{ k_docker_kurulu }} docker_servis={{ k_docker_servis }}
+          docker={{ kurulum_docker_durum }}
