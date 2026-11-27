@@ -149,8 +149,8 @@ setup_file() {
   [ "$output" = 0 ]
 }
 
-@test "TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
-  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+@test "TEMİZ ÇIKTI: hiçbir koşuda beklenmeyen [WARNING] / [DEPRECATION WARNING] yok" {
+  run beklenmeyen_uyarilar "$BATS_FILE_TMPDIR/hepsi.log"
   echo "$output" >&3
   [ "$status" -eq 1 ]
 }

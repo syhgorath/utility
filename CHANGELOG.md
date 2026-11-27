@@ -16,6 +16,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 - **Native MariaDB ilk kurulumda port/erişim uygulanmıyordu (v0.1.0 ve v0.2.0 etkilenir):** paket servisi varsayılan ayarla (127.0.0.1:3306) başlatıyor, koşu başarılı bitiyor ve kayda istenen adresi yazıyordu. Artık native MariaDB ve Redis'te dinlenen adres sunucudan okunur, farklıysa servis yeniden başlatılır, uygulanamazsa koşu hata verir (dosya doğru ama servis eski adreste kalmış durum da düzelir).
 
 ### Değişti
+- **Hızlandırma: SSH pipelining açıldı** (`ansible.cfg`). Modüller sunucuya dosya olarak kopyalanmaz; görev başına daha az gidiş geliş. Yeni sunucuda bir kez zararsız `[WARNING]: Module remote_tmp /root/.ansible/tmp did not exist …` satırı çıkar (klasör oluşturulur, tekrarlamaz). Gerçek VM'de (Ubuntu 26.04) nginx tek tık zinciri tek koşuda 146 sn → 91 sn. **Sınır:** sudoers'ta `Defaults requiretty` olan sunucuda `sudo` isteyen eylemler `must have a tty` hatasıyla durur (Debian/Ubuntu varsayılanında yok; çözüm README'de).
 - `kurulum_durum` değer sözleşmesi (yayımlanmamış nginx anahtarları): native `<uyg>_surum=dagitim` (önceden dpkg sürümü), yalnız iç ağda `<uyg>_port=ic` (önceden `yok`).
 
 ### Eklendi

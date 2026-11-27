@@ -71,7 +71,7 @@ indeks_boz() { lab sh -c 'rm -rf /var/lib/apt/lists/* && mkdir -p /var/lib/apt/l
   [ "$(recap_changed)" = 0 ]
 }
 
-@test "TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
-  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+@test "TEMİZ ÇIKTI: hiçbir koşuda beklenmeyen [WARNING] / [DEPRECATION WARNING] yok" {
+  run beklenmeyen_uyarilar "$BATS_FILE_TMPDIR/hepsi.log"
   [ "$status" -eq 1 ]
 }
