@@ -1,5 +1,6 @@
 # Tek uygulamanın okuması (<uyg>_durum eylemleri; salt okunur). Yalnız ana klasör işareti ve k_d_yz uygulaması okunur: diğer uygulamalara,
-# Docker tabanına ve port listesine bakılmaz. Girdi: k_d_yz. Sonuç: kurulum_ana_durum, k_st[k_d_yz]. Sonuç satırını playbook yazar.
+# Docker tabanına ve port listesine bakılmaz. Girdi: k_d_yz. Sonuç: kurulum_ana_durum, k_st[k_d_yz], k_duvar, k_duvar_engel.
+# Sonuç satırını playbook yazar.
 - name: Preflight
   ansible.builtin.include_tasks: preflight.yml
 
@@ -11,9 +12,22 @@
 - name: Application facts (actual server state)
   ansible.builtin.include_tasks: uygulama_durum.yml
 
+- name: Firewall state of the application port
+  ansible.builtin.include_tasks: duvar_oku.yml
+
 - name: Human-readable status
   ansible.builtin.debug:
     msg:
       - "ana klasör (sunucu): {{ k_ana_sunucu or '(yok)' }}; istenen: {{ k_ana }}; durum: {{ kurulum_ana_durum }}"
       - >-
         {% set d = k_st[k_d_yz] %}{{ k_d_yz }} (sunucudan okunan): kurulu={{ d.kurulu }} mod={{ d.mod }} port={{ d.port }} sürüm={{ d.surum }}{{ ' (paket ' ~ d.paket ~ ')' if d.paket else '' }} erişim={{ d.erisim }}
+      - "güvenlik duvarı: {{ k_duvar }} ({{ k_duvar_neden }})"
+
+# yalnız engel varken; ufw'ye bu paket yazmaz
+- name: Explain what to do when ufw blocks the port
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI {{ k_d_yz }} ağa açık dinliyor ama ufw {{ k_st[k_d_yz].port }}/tcp için izin vermiyor: ağdan erişilemez. Bu paket ufw'ye YAZMAZ.
+      linux-hardening kullanıyorsanız hardening_ufw_extra_allow_host listesine 'from <yönetim ağı> to any port {{ k_st[k_d_yz].port }} proto tcp' ekleyip
+      linux-hardening'i uygulayın; kullanmıyorsanız aynı kuralı sunucuda ufw ile elle ekleyin (README "Güvenlik duvarı bilgisi"). 'any' kaynak vermeyin.
+  when: k_duvar == 'engelliyor'

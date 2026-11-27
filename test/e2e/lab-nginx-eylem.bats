@@ -143,9 +143,9 @@ setup_file() {
   nginx_beklenen evet native 8081 dagitim sunucu
 }
 
-@test "sonuç satırı sözleşmesi (nginx_durum): 6 anahtar, her değer en çok 64 karakter ve yalnız izinli karakterler" {
+@test "sonuç satırı sözleşmesi (nginx_durum): 8 anahtar, her değer en çok 64 karakter ve yalnız izinli karakterler" {
   krun nginx_durum
-  [ "$(result | tr ' ' '\n' | grep -c '=')" = 6 ]
+  [ "$(result | tr ' ' '\n' | grep -c '=')" = 8 ]
   run bash -c "printf '%s\n' '$(result)' | tr ' ' '\n' | sed -n 's/^[a-z_]*=//p' | grep -vE '^[A-Za-z0-9_.:+-]{1,64}\$' | wc -l | tr -d ' '"
   [ "$output" = 0 ]
 }

@@ -14,6 +14,7 @@ Kurallar:
   - Her eylemin sonuç anahtarları, playbook'taki SSHPOCKET_RESULT satırında yazılır.
   - Uygulama okumaları (docker_durum, <uyg>_durum): salt okunur, yalnız kendi uygulamasının anahtarları; playbook sonuç satırı beyan edilenle birebir aynı.
   - Kart özeti ve ayar state'i var olan bir eylemin beyan ettiği anahtarı okur; uygulama kartları kendi okumasına bağlıdır.
+  - Port sahibi uygulamaların kartı <uyg>_duvar'ı beklentisiz, <uyg>_duvar_engel'i ok=hayir ile gösterir.
   - kurulum_durum genel özettir (kurulu, portlar, her uygulamanın <uyg>_kurulu'su); kurulu/portlar'ın en uzun hali 64 karaktere sığar.
 """
 import json
@@ -146,7 +147,7 @@ def sonuc_anahtarlari(name):
 for uyg in uygulamalar:
     ad = f"{uyg}_durum"
     beklenen = (["docker_kurulu", "docker_servis", "docker"] if uyg == "docker"
-                else ["ana_durum"] + [f"{uyg}_{k}" for k in ("kurulu", "mod", "port", "surum", "erisim")])
+                else ["ana_durum"] + [f"{uyg}_{k}" for k in ("kurulu", "mod", "port", "surum", "erisim", "duvar", "duvar_engel")])
     a = actions.get(ad)
     if a is None or not (ROOT / f"playbooks/{ad}.yml").is_file():
         err(f"uygulama {uyg}: salt okunur {ad} eylemi ve playbooks/{ad}.yml olmalı")
@@ -174,6 +175,19 @@ for c in comp.get("setting_cards", []):
         for item in s.get("items", []):
             if item.get("key") not in keys_of(s.get("action")):
                 err(f"kart {c['id']}: özet anahtarı '{item.get('key')}' {s.get('action')} çıktısında yok")
+# güvenlik duvarı: portu olan her uygulama kartı değeri gösterir; uyarıyı yalnız <uyg>_duvar_engel verir (KeyLab özet öğesi tek beklenen değer taşır:
+# <uyg>_duvar'a 'ok' yazılırsa 'atlanir' gibi sorun olmayan değerler de uyarı olur)
+for c in comp.get("setting_cards", []):
+    if c["id"] not in yazilimlar:
+        continue
+    ogeler = {i.get("key"): i for i in (c.get("summary") or {}).get("items", [])}
+    duvar, engel = ogeler.get(f"{c['id']}_duvar"), ogeler.get(f"{c['id']}_duvar_engel")
+    if duvar is None or "ok" in duvar or "max_abs" in duvar:
+        err(f"kart {c['id']}: özet {c['id']}_duvar öğesini beklentisiz göstermeli")
+    if engel is None or engel.get("ok") != "hayir":
+        err(f"kart {c['id']}: özet {c['id']}_duvar_engel öğesi ok=hayir olmalı (uyarı yalnız engelde)")
+    if len(ogeler) > 6:
+        err(f"kart {c['id']}: özet en çok 6 öğe taşır")
 for uyg in uygulamalar:
     if uyg not in {c["id"] for c in comp.get("setting_cards", [])}:
         err(f"uygulama {uyg}: setting_cards kartı yok")

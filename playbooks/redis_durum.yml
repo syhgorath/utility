@@ -1,5 +1,5 @@
 # Salt okunur Redis durumu: yalnız ana klasör işareti ve Redis okunur (genel özet: kurulum_durum). Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
-# Sonuç satırı: SSHPOCKET_RESULT utility.redis_durum ana_durum=… redis_kurulu=evet|durmus|hayir|unknown redis_mod=… redis_port=<N>|ic|yok|unknown redis_surum=<etiket>|dagitim|yok|unknown redis_erisim=ic|sunucu|agdan|yok|unknown
+# Sonuç satırı: SSHPOCKET_RESULT utility.redis_durum ana_durum=… redis_kurulu=evet|durmus|hayir|unknown redis_mod=… redis_port=<N>|ic|yok|unknown redis_surum=<etiket>|dagitim|yok|unknown redis_erisim=ic|sunucu|agdan|yok|unknown redis_duvar=acik|kisitli|engelliyor|atlanir|gerekmez|unknown redis_duvar_engel=evet|hayir|unknown
 - name: redis durum (salt okunur)
   hosts: utility
   gather_facts: true
@@ -24,3 +24,5 @@
           redis_port={{ k_st.redis.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           redis_surum={{ k_st.redis.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           redis_erisim={{ k_st.redis.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redis_duvar={{ k_duvar }}
+          redis_duvar_engel={{ k_duvar_engel }}

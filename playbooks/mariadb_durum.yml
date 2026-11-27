@@ -1,5 +1,5 @@
 # Salt okunur MariaDB durumu: yalnız ana klasör işareti ve MariaDB okunur (genel özet: kurulum_durum). Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
-# Sonuç satırı: SSHPOCKET_RESULT utility.mariadb_durum ana_durum=… mariadb_kurulu=evet|durmus|hayir|unknown mariadb_mod=… mariadb_port=<N>|ic|yok|unknown mariadb_surum=<etiket>|dagitim|yok|unknown mariadb_erisim=ic|sunucu|agdan|yok|unknown
+# Sonuç satırı: SSHPOCKET_RESULT utility.mariadb_durum ana_durum=… mariadb_kurulu=evet|durmus|hayir|unknown mariadb_mod=… mariadb_port=<N>|ic|yok|unknown mariadb_surum=<etiket>|dagitim|yok|unknown mariadb_erisim=ic|sunucu|agdan|yok|unknown mariadb_duvar=acik|kisitli|engelliyor|atlanir|gerekmez|unknown mariadb_duvar_engel=evet|hayir|unknown
 - name: mariadb durum (salt okunur)
   hosts: utility
   gather_facts: true
@@ -24,3 +24,5 @@
           mariadb_port={{ k_st.mariadb.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           mariadb_surum={{ k_st.mariadb.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           mariadb_erisim={{ k_st.mariadb.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          mariadb_duvar={{ k_duvar }}
+          mariadb_duvar_engel={{ k_duvar_engel }}

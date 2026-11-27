@@ -339,8 +339,9 @@
       "requires_sudo": true,
       "confirm": "none",
       "warnings": [
-        "Salt okunur: yalnız ana klasör işaretini ve nginx durumunu sunucudan okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
-        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+        "Salt okunur: yalnız ana klasör işaretini, nginx durumunu ve portunun güvenlik duvarı (ufw) durumunu sunucudan okur; hiçbir şeyi değiştirmez, port açmaz. İşaret dosyası ve ufw kuralları root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur.",
+        "nginx_duvar yalnız ufw'nin IPv4 kurallarına ve Docker'ın bilinen davranışına bakar: bulut/yönlendirici güvenlik duvarı ve elle yazılmış kurallar okunmaz. 'acik' ağdan erişimin denendiği anlamına gelmez."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -351,7 +352,9 @@
           "nginx_mod",
           "nginx_port",
           "nginx_surum",
-          "nginx_erisim"
+          "nginx_erisim",
+          "nginx_duvar",
+          "nginx_duvar_engel"
         ]
       }
     },
@@ -548,8 +551,9 @@
       "requires_sudo": true,
       "confirm": "none",
       "warnings": [
-        "Salt okunur: yalnız ana klasör işaretini ve MariaDB durumunu sunucudan okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
-        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+        "Salt okunur: yalnız ana klasör işaretini, MariaDB durumunu ve portunun güvenlik duvarı (ufw) durumunu sunucudan okur; hiçbir şeyi değiştirmez, port açmaz. İşaret dosyası ve ufw kuralları root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur.",
+        "mariadb_duvar yalnız ufw'nin IPv4 kurallarına ve Docker'ın bilinen davranışına bakar: bulut/yönlendirici güvenlik duvarı ve elle yazılmış kurallar okunmaz. 'acik' ağdan erişimin denendiği anlamına gelmez."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -560,7 +564,9 @@
           "mariadb_mod",
           "mariadb_port",
           "mariadb_surum",
-          "mariadb_erisim"
+          "mariadb_erisim",
+          "mariadb_duvar",
+          "mariadb_duvar_engel"
         ]
       }
     },
@@ -657,8 +663,9 @@
       "requires_sudo": true,
       "confirm": "none",
       "warnings": [
-        "Salt okunur: yalnız ana klasör işaretini ve Redis durumunu sunucudan okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
-        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+        "Salt okunur: yalnız ana klasör işaretini, Redis durumunu ve portunun güvenlik duvarı (ufw) durumunu sunucudan okur; hiçbir şeyi değiştirmez, port açmaz. İşaret dosyası ve ufw kuralları root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur.",
+        "redis_duvar yalnız ufw'nin IPv4 kurallarına ve Docker'ın bilinen davranışına bakar: bulut/yönlendirici güvenlik duvarı ve elle yazılmış kurallar okunmaz. 'acik' ağdan erişimin denendiği anlamına gelmez."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -669,7 +676,9 @@
           "redis_mod",
           "redis_port",
           "redis_surum",
-          "redis_erisim"
+          "redis_erisim",
+          "redis_duvar",
+          "redis_duvar_engel"
         ]
       }
     },
@@ -1101,6 +1110,15 @@
           {
             "key": "nginx_mod",
             "label": "Mod"
+          },
+          {
+            "key": "nginx_duvar",
+            "label": "Güvenlik duvarı"
+          },
+          {
+            "key": "nginx_duvar_engel",
+            "label": "Duvar engeli",
+            "ok": "hayir"
           }
         ]
       }
@@ -1119,6 +1137,15 @@
           {
             "key": "mariadb_mod",
             "label": "Mod"
+          },
+          {
+            "key": "mariadb_duvar",
+            "label": "Güvenlik duvarı"
+          },
+          {
+            "key": "mariadb_duvar_engel",
+            "label": "Duvar engeli",
+            "ok": "hayir"
           }
         ]
       }
@@ -1137,6 +1164,15 @@
           {
             "key": "redis_mod",
             "label": "Mod"
+          },
+          {
+            "key": "redis_duvar",
+            "label": "Güvenlik duvarı"
+          },
+          {
+            "key": "redis_duvar_engel",
+            "label": "Duvar engeli",
+            "ok": "hayir"
           }
         ]
       }
@@ -1296,17 +1332,17 @@
       "card": "nginx",
       "label": "Ağ erişimi",
       "var": "kurulum_nginx_erisim",
-      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan, kapalıysa (varsayılan) sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağdaki herkes.",
+      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan, kapalıysa (varsayılan) sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağa açık; native'de ufw izni gerekebilir.",
       "value_labels": {
         "otomatik": "genel ayara göre; varsayılan dışarı açmaz",
         "ic": "port açılmaz; yalnız Docker ağından (Docker modu)",
         "sunucu": "yalnız bu sunucu (127.0.0.1)",
-        "agdan": "ağdaki herkes"
+        "agdan": "ağa açık dinler; native'de ufw izni de gerekebilir"
       },
       "risk": [
         "restarts-service"
       ],
-      "risk_note": "'agdan' portu ağdaki herkese açar; Docker yayını ufw'ye takılmaz. Erişim değişince nginx yeniden başlar.",
+      "risk_note": "'agdan' ağa açar: Docker yayını ufw'ye takılmaz, native ufw izni ister. Erişim değişince nginx yeniden başlar.",
       "apply_via": [
         "nginx_kur"
       ],
@@ -1391,17 +1427,17 @@
       "card": "mariadb",
       "label": "Ağ erişimi",
       "var": "kurulum_mariadb_erisim",
-      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan; kapalıysa (varsayılan) yeni Docker kurulumu ic, ötekiler sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağdaki herkes.",
+      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan; kapalıysa (varsayılan) yeni Docker kurulumu ic, ötekiler sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağa açık; native'de ufw izni gerekebilir.",
       "value_labels": {
         "otomatik": "genel ayara göre; varsayılan dışarı açmaz",
         "ic": "port açılmaz; yalnız Docker ağından (Docker modu)",
         "sunucu": "yalnız bu sunucu (127.0.0.1)",
-        "agdan": "ağdaki herkes"
+        "agdan": "ağa açık dinler; native'de ufw izni de gerekebilir"
       },
       "risk": [
         "restarts-service"
       ],
-      "risk_note": "'agdan' portu ağdaki herkese açar; Docker yayını ufw'ye takılmaz. Değişince servis yeniden başlar.",
+      "risk_note": "'agdan' ağa açar: Docker yayını ufw'ye takılmaz, native ufw izni ister. Değişince servis yeniden başlar.",
       "apply_via": [
         "mariadb_kur"
       ],
@@ -1487,17 +1523,17 @@
       "card": "redis",
       "label": "Ağ erişimi",
       "var": "kurulum_redis_erisim",
-      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan; kapalıysa (varsayılan) yeni Docker kurulumu ic, ötekiler sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağdaki herkes.",
+      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan; kapalıysa (varsayılan) yeni Docker kurulumu ic, ötekiler sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağa açık; native'de ufw izni gerekebilir.",
       "value_labels": {
         "otomatik": "genel ayara göre; varsayılan dışarı açmaz",
         "ic": "port açılmaz; yalnız Docker ağından (Docker modu)",
         "sunucu": "yalnız bu sunucu (127.0.0.1)",
-        "agdan": "ağdaki herkes"
+        "agdan": "ağa açık dinler; native'de ufw izni de gerekebilir"
       },
       "risk": [
         "restarts-service"
       ],
-      "risk_note": "'agdan' portu ağdaki herkese açar; Docker yayını ufw'ye takılmaz. Değişince servis yeniden başlar.",
+      "risk_note": "'agdan' ağa açar: Docker yayını ufw'ye takılmaz, native ufw izni ister. Değişince servis yeniden başlar.",
       "apply_via": [
         "redis_kur"
       ],

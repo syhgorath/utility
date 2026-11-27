@@ -1,5 +1,5 @@
 # Salt okunur nginx durumu: yalnız ana klasör işareti ve nginx okunur (genel özet: kurulum_durum). Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
-# Sonuç satırı: SSHPOCKET_RESULT utility.nginx_durum ana_durum=… nginx_kurulu=evet|durmus|hayir|unknown nginx_mod=… nginx_port=<N>|ic|yok|unknown nginx_surum=<etiket>|dagitim|yok|unknown nginx_erisim=ic|sunucu|agdan|yok|unknown
+# Sonuç satırı: SSHPOCKET_RESULT utility.nginx_durum ana_durum=… nginx_kurulu=evet|durmus|hayir|unknown nginx_mod=… nginx_port=<N>|ic|yok|unknown nginx_surum=<etiket>|dagitim|yok|unknown nginx_erisim=ic|sunucu|agdan|yok|unknown nginx_duvar=acik|kisitli|engelliyor|atlanir|gerekmez|unknown nginx_duvar_engel=evet|hayir|unknown
 - name: nginx durum (salt okunur)
   hosts: utility
   gather_facts: true
@@ -24,3 +24,5 @@
           nginx_port={{ k_st.nginx.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           nginx_surum={{ k_st.nginx.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           nginx_erisim={{ k_st.nginx.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_duvar={{ k_duvar }}
+          nginx_duvar_engel={{ k_duvar_engel }}

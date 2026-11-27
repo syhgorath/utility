@@ -30,7 +30,7 @@ Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `uti
 |---|---|---|---|
 | `kurulum_durum` | salt okunur | – | **Genel özet** (eski `kurulum/durum`): `ana_durum=… docker=… kurulu=… portlar=…`, her uygulama için `<uyg>_kurulu=evet\|durmus\|hayir\|unknown` (`nginx`, `mariadb`, `redis`, `docker`) ve `docker_servis=evet\|durmus\|yok\|unknown`. Mod, port, sürüm ve erişim uygulamanın kendi okumasındadır. `kurulu`/`portlar` için [sonuç satırı sınırı](#sonuç-satırı-sınırı) |
 | `docker_durum` | salt okunur, **sudo yok** | – | Yalnız Docker tabanı: `docker_kurulu=evet\|durmus\|hayir\|unknown docker_servis=evet\|durmus\|yok\|unknown docker=yok\|resmi\|dagitim\|snap\|diger` (snap/paket dışı Docker'da ilk ikisi `unknown`) |
-| `nginx_durum` / `mariadb_durum` / `redis_durum` | salt okunur | – | Yalnız o uygulama, **sunucudan** okunur: `ana_durum=… <uyg>_kurulu=evet\|durmus\|hayir\|unknown <uyg>_mod=… <uyg>_port=<N>\|ic <uyg>_surum=<etiket>\|dagitim <uyg>_erisim=ic\|sunucu\|agdan` (kurulu değilken `yok`, okunamazsa `unknown`) |
+| `nginx_durum` / `mariadb_durum` / `redis_durum` | salt okunur | – | Yalnız o uygulama, **sunucudan** okunur: `ana_durum=… <uyg>_kurulu=evet\|durmus\|hayir\|unknown <uyg>_mod=… <uyg>_port=<N>\|ic <uyg>_surum=<etiket>\|dagitim <uyg>_erisim=ic\|sunucu\|agdan` (kurulu değilken `yok`, okunamazsa `unknown`), `<uyg>_duvar=…` ve `<uyg>_duvar_engel=evet\|hayir\|unknown` ([güvenlik duvarı bilgisi](#güvenlik-duvarı-bilgisi)) |
 | `kurulum_onizle` | salt okunur (`--check --diff`) | – | `kur`'un aynı görevleri `--check` ile; `degisen=<N> yukseltme=evet\|hayir` (eski `kurulum/preview`; `kur`/`yukselt`/`kaldir` bunu ön koşul ister) |
 | `kur` | `installs-package`, `changes-config` | `yes-no`, `kurulum_onizle` ön koşul | Seçili yazılımı kurar. İkinci çalıştırma `changed=0`. **Sürümü sessizce değiştirmez** |
 | `yukselt` | + `destructive` | `type-server-name`, `kurulum_onizle` ön koşul | Yalnızca **docker** modunda, daha **yeni** sürüme; önce döküm/yedek. **Geri düşürme yok** |
@@ -104,6 +104,27 @@ Küratörlü sürümler (artan; paket sürümüyle gelir): nginx `1.30.6`, `1.31
 - `127.0.0.1` yayını Docker 28 öncesinde aynı yerel ağdaki makinelerden erişilebiliyordu (Docker belgesi; bu pakette denenmedi).
 - Hardening'le birlikte kullanım **VM'de denenmedi** (docs/vm-turu.md "Hardening turları"): `hardening_kernel_modules_disabled=true` Docker'ı bozar (kurulum sonra); `hardening_ufw_outgoing_deny` açıksa `apt` ve `docker pull` kapanır; `/tmp` noexec ve AppArmor'un MariaDB'ye etkisi doğrulanmadı.
 
+### Güvenlik duvarı bilgisi
+`nginx_durum`, `mariadb_durum` ve `redis_durum` uygulamanın portu için `<uyg>_duvar` bildirir; uygulama kartında **Güvenlik duvarı** olarak görünür. **Salt okunur:** ufw'ye ve iptables'a yazılmaz, port açılmaz.
+
+| Değer | Anlamı |
+|---|---|
+| `acik` | ufw kurulu değil ya da kapalı, ya da porta herkesten izin var |
+| `kisitli` | Porta yalnız bazı kaynaklardan, adreslerden ya da arayüzlerden izin var; ya da bazı kaynaklar reddediliyor. Sizin bilgisayarınız izinli ağda olmayabilir |
+| `engelliyor` | **Native:** servis ağa açık dinliyor ama ufw porta dışarıdan izin vermiyor. Kartta uyarı (`<uyg>_duvar_engel=evet`) |
+| `atlanir` | **Docker** portu ağa yayınlı: ufw bu porta uygulanmaz, ufw kuralı erişimi kısıtlamaz. Uyarı değildir |
+| `gerekmez` | Port ağa açık değil (kurulu değil ya da erişim `ic` / `sunucu`) |
+| `unknown` | Okunamadı ya da değerlendirilmeyen bir yapılandırma var; tahmin edilmez. Örnekler: servis durmuş, ufw kapalıyken `firewalld`/`nftables` çalışıyor, `DOCKER-USER` zincirinde ek kural, Docker'da `iptables: false` |
+
+`<uyg>_duvar_engel` kartın uyarısı içindir: `engelliyor` → `evet`, `unknown` → `unknown`, diğerleri `hayir`.
+
+**`engelliyor` görünce** (porta ağdan erişmek istiyorsanız; istemiyorsanız erişimi `sunucu` yapın):
+- linux-hardening kullanıyorsanız `servers/<ad>/linux-hardening.vars` içindeki `hardening_ufw_extra_allow_host` listesine `from <yönetim ağı> to any port <port> proto tcp` ekleyip linux-hardening'i uygulayın. `hardening_ufw_extra_allow` grup ayarıdır; sunucuya yazarsanız grubun listesini ezer.
+- Kullanmıyorsanız sunucuda: `sudo ufw allow from <yönetim ağı> to any port <port> proto tcp`
+- Kaynak olarak `any` vermeyin. Sonra uygulama kartında **Kontrol et** ile yeniden okuyun.
+
+**Sınırlar:** yalnız ufw'nin kullanıcı kuralları (`/etc/ufw/user.rules`, IPv4) ve gelen trafik varsayılanı değerlendirilir. `before.rules`'a elle eklenen kurallar, IPv6 kuralları, elle yazılmış iptables/nftables kuralları ile sunucu dışındaki güvenlik duvarları (bulut sağlayıcısı, yönlendirici) okunmaz. `acik` ve `atlanir`, porta ağdan erişimin **denendiği anlamına gelmez**.
+
 ## Yükseltme, kaldırma ve geri alma kapsamı (dürüstçe)
 - **Yükseltme (`yukselt`)** yalnızca docker modunda ve daha yeni sürüme: önce döküm/yedek (`<ana>/<yazılım>/yedek/<tarih>/`, dizin 0700, dosya 0600; MariaDB `mariadb-dump --all-databases`, Redis `SAVE` + veri kopyası, nginx web kökü ve compose.yml), sonra yeni imaj çekilir, sonra compose güncellenir. **Geri düşürme yoktur**; eski sürüme dönmek için yedeği kendiniz geri yüklersiniz (bu paket geri yüklemeyi yapmaz). **Native sürüm yükseltme v0.1'de yok** (apt'i kendiniz yönetin).
 - **Kaldır (`kaldir`)** veriye dokunmaz: docker modunda `compose down` (`-v` yok); veri klasörü, `.env` (parola) ve `compose.yml` kalır. Native'de servis durur/devre dışı kalır, paket `apt remove` ile çıkar (**purge yok**), yapılandırma ve veri kalır. Kaldırılan yazılım işarette `kaldirilan` altında kalır; yeniden `kur` aynı veriyi ve aynı parolayı kullanır. Docker taban kaldırma v0.1'de yok.
@@ -116,6 +137,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 | `component_validate.py . --strict --unsigned` (`git archive` arşivi) | temiz |
 | LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` / `lab-preview.bats` / `lab-apt.bats` | 21/21, 11/11, 8/8 ve 7/7: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
 | `test/run-all.sh` (statik desen denetimi, release betikleri, tutarlılık) | yeşil |
+| LAB: `lab-duvar.bats` (güvenlik duvarı okuması, **gerçek ufw**; ikinci konteynerden erişim denemesiyle) | 13/13. Yalnız LAB konteyneri; gerçek VM, Debian 13 ve linux-hardening kurallarıyla **denenmedi** |
 | **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook) | ✅ Docker taban (kur, ikinci kur changed=0); docker modu nginx/MariaDB/Redis kur + ikinci kur changed=0, parola sızıntısı 0 eşleşme, **yükseltme** (MariaDB 10.11.19→11.4.13 veri duruyor, Redis 7.2.17→7.4.12 anahtar duruyor, nginx 1.30.6→1.31.8), **kaldır** (veri/.env/compose kalır; Redis yeniden kur veri ve parolayı korudu); **native** nginx/MariaDB/Redis kur + ikinci kur changed=0. Ayrıntı CHANGELOG |
 | Gerçek VM: V04 (indeks toparlama) ve V05 (saat sapması uyarısı) düzeltmeleri — LAB'da sınandı (faketime), VM'de **denenmedi** | **denenmedi** |
 | Gerçek VM: hardening'li iki sıralı tur, native Redis'te yeni parola üretimi, düzeltilmiş native Redis `preview`, sshpocket menüsü | **denenmedi** |
@@ -127,7 +149,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 python3.13 -m venv .venv && .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
 python3 -I tools/validate/component_validate.py . --strict --unsigned
 test/run-all.sh
-LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats test/e2e/lab-apt.bats   # Colima/Docker gerekir
+LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats test/e2e/lab-apt.bats test/e2e/lab-duvar.bats   # Colima/Docker gerekir
 ```
 LAB notu: iç içe Docker için `/var/lib/docker` ve `/var/lib/containerd` ayrı volume'dür (yalnızca LAB; gerçek VM'de gerekmez). Ağda TLS'i araya giren bir güvenlik yazılımı varsa kök sertifikası yalnızca LAB konteynerine eklenir (`LAB_CA_FILE`); doğrulama kapatılmaz, paket buna bağımlı değildir.
 Yayın: `scripts/release.sh` / `release-publish.sh` (imza anahtarı ve yayın **kullanıcıdadır**). `release-publish.sh` Release doğrulandıktan sonra imzalı paket indeksini (`syhgorath/sshpocket-index`, `SSHPOCKET_INDEX_DIR`) günceller; normal sürümde `components.lock` PR'ı **gerekmez**. İndeks hatası Release'i geçersiz kılmaz: `index-publish.sh` tek başına yeniden çalıştırılabilir. İndeks deposunda yalnızca yerel commit oluşur, push kullanıcıdadır.
