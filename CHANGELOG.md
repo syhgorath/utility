@@ -6,6 +6,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ### Eklendi
 - **Uygulama başına okuma:** `docker_durum` (sudo istemez), `nginx_durum`, `mariadb_durum`, `redis_durum`. Salt okunur; her biri yalnız kendi uygulamasını okur ve bildirir. Uygulama ayar kartlarının özeti ve `state.action` bu eylemlere taşındı (Saat ve Sistem kartları değişmedi).
+- **Güvenlik duvarı bilgisi:** `nginx_durum`, `mariadb_durum`, `redis_durum` salt okunur olarak `<uyg>_duvar` (`acik|kisitli|engelliyor|atlanir|gerekmez|unknown`) ve `<uyg>_duvar_engel` (`evet|hayir|unknown`) bildirir; uygulama kartının özetine **Güvenlik duvarı** ve **Duvar engeli** eklendi, uyarı yalnız `engelliyor`'da. ufw'ye yazılmaz, port açılmaz. `agdan` seçeneğinin açıklaması "ağdaki herkes" yerine native'de ufw izni gerekebileceğini söyler. Sınırlar README'de.
 - **Seçenek açıklamaları:** erişim, mod ve Docker kaynağı ayarlarında `settings[].value_labels` (listede "değer — açıklama"; kaydedilen değer aynı); KeyLab'ın yeni sürümünü gerektirir.
 - Erişim ve mod açıklamaları netleştirildi (davranış değişmedi): `otomatik` kurulu uygulamanın erişimini her durumda **korumaz**; genel dış erişim kapalıyken dışarı açık uygulama kapanır, docker'da iç ağdaki uygulama iç ağda kalır.
 - **Sabit hedefli eylemler:** `docker_onizle/kur/yukselt`, `mariadb_onizle/kur/yukselt`, `redis_onizle/kur/yukselt` (`nginx_*` deseni). `docker_yukselt` **her zaman reddeder** (Docker taban yükseltmesi desteklenmez).

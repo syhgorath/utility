@@ -16,7 +16,11 @@ beklenen() {
   [ "$status" -eq 0 ] || return 1
   [ "$(recap_changed)" = 0 ] || return 1
   [[ "$(result)" == "SSHPOCKET_RESULT utility.${yz}_durum "* ]] || return 1
-  [ "$(anahtarlar)" = "ana_durum ${yz}_kurulu ${yz}_mod ${yz}_port ${yz}_surum ${yz}_erisim" ] || { echo "$yz okumasında yabancı/eksik anahtar: $(anahtarlar)" >&2; return 1; }
+  [ "$(anahtarlar)" = "ana_durum ${yz}_kurulu ${yz}_mod ${yz}_port ${yz}_surum ${yz}_erisim ${yz}_duvar ${yz}_duvar_engel" ] || { echo "$yz okumasında yabancı/eksik anahtar: $(anahtarlar)" >&2; return 1; }
+  # bu LAB'da ufw kurulu değil (ufw durumları: lab-duvar.bats); duvar değeri erişim ve moddan belirlenir
+  local d e=hayir
+  case "$5:$2" in yok:*|ic:*|sunucu:*) d=gerekmez ;; agdan:docker) d=atlanir ;; agdan:native) d=acik ;; *) d=unknown; e=unknown ;; esac
+  [ "$(anahtar "${yz}_duvar") $(anahtar "${yz}_duvar_engel")" = "$d $e" ] || { echo "$yz duvar beklenen: $d $e  gelen: $(anahtar "${yz}_duvar") $(anahtar "${yz}_duvar_engel")" >&2; return 1; }
   local g
   g="$(anahtar "${yz}_kurulu") $(anahtar "${yz}_mod") $(anahtar "${yz}_port") $(anahtar "${yz}_surum") $(anahtar "${yz}_erisim")"
   [ "$g" = "$*" ] || { echo "$yz beklenen: $*  gelen: $g" >&2; return 1; }

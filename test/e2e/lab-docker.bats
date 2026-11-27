@@ -192,11 +192,11 @@ setup_file() {
   [ "$status" -eq 0 ]
   [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet mariadb_kurulu=evet redis_kurulu=evet docker_kurulu=evet docker_servis=evet" ]
   krun nginx_durum
-  [ "$(result)" = "SSHPOCKET_RESULT utility.nginx_durum ana_durum=tamam nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.nginx_durum ana_durum=tamam nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu nginx_duvar=gerekmez nginx_duvar_engel=hayir" ]
   krun mariadb_durum
-  [ "$(result)" = "SSHPOCKET_RESULT utility.mariadb_durum ana_durum=tamam mariadb_kurulu=evet mariadb_mod=docker mariadb_port=3306 mariadb_surum=11.4.13 mariadb_erisim=sunucu" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.mariadb_durum ana_durum=tamam mariadb_kurulu=evet mariadb_mod=docker mariadb_port=3306 mariadb_surum=11.4.13 mariadb_erisim=sunucu mariadb_duvar=gerekmez mariadb_duvar_engel=hayir" ]
   krun redis_durum
-  [ "$(result)" = "SSHPOCKET_RESULT utility.redis_durum ana_durum=tamam redis_kurulu=evet redis_mod=docker redis_port=6379 redis_surum=7.4.12 redis_erisim=sunucu" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.redis_durum ana_durum=tamam redis_kurulu=evet redis_mod=docker redis_port=6379 redis_surum=7.4.12 redis_erisim=sunucu redis_duvar=gerekmez redis_duvar_engel=hayir" ]
 }
 
 @test "TEMİZ ÇIKTI: hiçbir koşuda beklenmeyen [WARNING] / [DEPRECATION WARNING] yok" {

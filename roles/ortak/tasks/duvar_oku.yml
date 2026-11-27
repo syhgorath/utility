@@ -1,0 +1,25 @@
+# Uygulama portunun güvenlik duvarı durumu (SALT OKUNUR; --check'te de çalışır). Karar files/duvar_oku.py içindedir: ufw'ye ve iptables'a YAZMAZ.
+# Girdi: k_d_yz, k_st[k_d_yz]. Sonuç: k_duvar (acik | kisitli | engelliyor | atlanir | gerekmez | unknown), k_duvar_engel (evet | hayir | unknown), k_duvar_neden.
+- name: Read the firewall state of the application port
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable }}"
+      - -I
+      - "-"
+      - "{{ {'mod': k_st[k_d_yz].mod, 'erisim': k_st[k_d_yz].erisim, 'port': k_st[k_d_yz].port | string} | to_json }}"
+    stdin: "{{ lookup('ansible.builtin.file', 'duvar_oku.py') }}"
+  register: kurulum_duvar_ham
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# betik koşamazsa hiçbir iddiada bulunulmaz
+- name: Evaluate the firewall state
+  ansible.builtin.set_fact:
+    k_duvar: "{{ k_duvar_cevap.duvar }}"
+    k_duvar_neden: "{{ k_duvar_cevap.neden }}"
+    k_duvar_engel: "{{ 'evet' if k_duvar_cevap.duvar == 'engelliyor' else ('unknown' if k_duvar_cevap.duvar == 'unknown' else 'hayir') }}"
+  vars:
+    k_duvar_cevap: >-
+      {{ (kurulum_duvar_ham.stdout | from_json) if kurulum_duvar_ham.rc == 0 and kurulum_duvar_ham.stdout | default('') | trim != ''
+         else {'duvar': 'unknown', 'neden': 'güvenlik duvarı okuması çalışmadı'} }}
