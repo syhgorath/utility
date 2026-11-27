@@ -770,7 +770,7 @@
       ],
       "default": "otomatik",
       "group": "nginx",
-      "description": "nginx kurulum modu. otomatik = genel kurulum_mod (kurulu uygulamada kurulu mod korunur). Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
+      "description": "nginx kurulum modu. otomatik = genel kurulum_mod; nginx_* eylemlerinde kurulu uygulamanın modu korunur. Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
     },
     {
       "name": "kurulum_mariadb_mod",
@@ -782,7 +782,7 @@
       ],
       "default": "otomatik",
       "group": "mariadb",
-      "description": "mariadb kurulum modu. otomatik = genel kurulum_mod (kurulu uygulamada kurulu mod korunur). Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
+      "description": "mariadb kurulum modu. otomatik = genel kurulum_mod; mariadb_* eylemlerinde kurulu uygulamanın modu korunur. Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
     },
     {
       "name": "kurulum_redis_mod",
@@ -794,7 +794,7 @@
       ],
       "default": "otomatik",
       "group": "redis",
-      "description": "redis kurulum modu. otomatik = genel kurulum_mod (kurulu uygulamada kurulu mod korunur). Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
+      "description": "redis kurulum modu. otomatik = genel kurulum_mod; redis_* eylemlerinde kurulu uygulamanın modu korunur. Kurulu uygulamanın modu değiştirilemez: önce kaldır, sonra yeni modla kur."
     },
     {
       "name": "kurulum_ana_klasor",
@@ -833,7 +833,7 @@
       ],
       "default": "otomatik",
       "group": "nginx",
-      "description": "nginx ağ erişimi. otomatik = kurulu uygulama bugünkü durumunu korur (iç ağdaysa kalır, değilse kurulum_dis_erisim); yeni kurulum bu sunucudan. ic = yalnız iç ağ, port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
+      "description": "nginx ağ erişimi. otomatik = docker'da iç ağdaki uygulama orada kalır; diğerlerinde kurulum_dis_erisim=true ise agdan, false ise sunucu (dışarı açık uygulama kapanır). ic = port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
     },
     {
       "name": "kurulum_mariadb_erisim",
@@ -846,7 +846,7 @@
       ],
       "default": "otomatik",
       "group": "mariadb",
-      "description": "mariadb ağ erişimi. otomatik = kurulu uygulama bugünkü durumunu korur (iç ağdaysa kalır, değilse kurulum_dis_erisim); yeni docker kurulumu yalnız iç ağ, native kurulum bu sunucudan. ic = yalnız iç ağ, port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
+      "description": "mariadb ağ erişimi. otomatik = docker'da iç ağdaki uygulama orada kalır; diğerlerinde kurulum_dis_erisim=true ise agdan, false ise yeni docker kurulumu ic, ötekiler sunucu (dışarı açık uygulama kapanır). ic = port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
     },
     {
       "name": "kurulum_redis_erisim",
@@ -859,7 +859,7 @@
       ],
       "default": "otomatik",
       "group": "redis",
-      "description": "redis ağ erişimi. otomatik = kurulu uygulama bugünkü durumunu korur (iç ağdaysa kalır, değilse kurulum_dis_erisim); yeni docker kurulumu yalnız iç ağ, native kurulum bu sunucudan. ic = yalnız iç ağ, port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
+      "description": "redis ağ erişimi. otomatik = docker'da iç ağdaki uygulama orada kalır; diğerlerinde kurulum_dis_erisim=true ise agdan, false ise yeni docker kurulumu ic, ötekiler sunucu (dışarı açık uygulama kapanır). ic = port yayınlanmaz (yalnız docker). sunucu = 127.0.0.1. agdan = 0.0.0.0 (docker yayını ufw'ye takılmaz)."
     },
     {
       "name": "kurulum_docker_ag",
@@ -1157,6 +1157,10 @@
       "label": "Kurulum kaynağı",
       "var": "kurulum_docker_kaynak",
       "description": "resmi = download.docker.com deposu, dagitim = dağıtım paketi. Yalnız Docker kurulu değilken etkilidir; kurulu Docker'ın kaynağı değiştirilmez.",
+      "value_labels": {
+        "resmi": "Docker'ın kendi deposu",
+        "dagitim": "dağıtımın docker.io paketi"
+      },
       "risk_note": "Docker güvenlik duvarı kurallarını yönetir; yayınlanan konteyner portları ufw'ye takılmaz.",
       "apply_via": [
         "docker_kur"
@@ -1176,7 +1180,12 @@
       "card": "nginx",
       "label": "Mod",
       "var": "kurulum_nginx_mod",
-      "description": "native = dağıtım paketi, docker = konteyner; otomatik = genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "description": "otomatik = kuruluysa mevcut mod, yeni kurulumda genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "value_labels": {
+        "otomatik": "kuruluysa aynı kalır; yenide genel ayar (varsayılan native)",
+        "native": "dağıtımın paketi",
+        "docker": "konteyner"
+      },
       "apply_via": [
         "nginx_kur"
       ],
@@ -1212,7 +1221,13 @@
       "card": "nginx",
       "label": "Ağ erişimi",
       "var": "kurulum_nginx_erisim",
-      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik: iç ağdaysa kalır, değilse genel dış erişim ayarını izler (varsayılan: sunucu).",
+      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan, kapalıysa (varsayılan) sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağdaki herkes.",
+      "value_labels": {
+        "otomatik": "genel ayara göre; varsayılan dışarı açmaz",
+        "ic": "port açılmaz; yalnız Docker ağından (Docker modu)",
+        "sunucu": "yalnız bu sunucu (127.0.0.1)",
+        "agdan": "ağdaki herkes"
+      },
       "risk": [
         "restarts-service"
       ],
@@ -1257,7 +1272,12 @@
       "card": "mariadb",
       "label": "Mod",
       "var": "kurulum_mariadb_mod",
-      "description": "native = dağıtım paketi, docker = konteyner; otomatik = genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "description": "otomatik = kuruluysa mevcut mod, yeni kurulumda genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "value_labels": {
+        "otomatik": "kuruluysa aynı kalır; yenide genel ayar (varsayılan native)",
+        "native": "dağıtımın paketi",
+        "docker": "konteyner"
+      },
       "apply_via": [
         "mariadb_kur"
       ],
@@ -1296,7 +1316,13 @@
       "card": "mariadb",
       "label": "Ağ erişimi",
       "var": "kurulum_mariadb_erisim",
-      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik: iç ağdaysa kalır, değilse genel dış erişim ayarını izler (varsayılan: sunucu). Yeni docker kurulumu iç ağda.",
+      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan; kapalıysa (varsayılan) yeni Docker kurulumu ic, ötekiler sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağdaki herkes.",
+      "value_labels": {
+        "otomatik": "genel ayara göre; varsayılan dışarı açmaz",
+        "ic": "port açılmaz; yalnız Docker ağından (Docker modu)",
+        "sunucu": "yalnız bu sunucu (127.0.0.1)",
+        "agdan": "ağdaki herkes"
+      },
       "risk": [
         "restarts-service"
       ],
@@ -1342,7 +1368,12 @@
       "card": "redis",
       "label": "Mod",
       "var": "kurulum_redis_mod",
-      "description": "native = dağıtım paketi, docker = konteyner; otomatik = genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "description": "otomatik = kuruluysa mevcut mod, yeni kurulumda genel ayar. Kurulu uygulamada mod değiştirilemez: önce Genel eylemler'den kaldır, sonra yeni modla kur.",
+      "value_labels": {
+        "otomatik": "kuruluysa aynı kalır; yenide genel ayar (varsayılan native)",
+        "native": "dağıtımın paketi",
+        "docker": "konteyner"
+      },
       "apply_via": [
         "redis_kur"
       ],
@@ -1381,7 +1412,13 @@
       "card": "redis",
       "label": "Ağ erişimi",
       "var": "kurulum_redis_erisim",
-      "description": "ic = yalnız iç ağ (docker), sunucu = 127.0.0.1, agdan = ağdaki herkes. otomatik: iç ağdaysa kalır, değilse genel dış erişim ayarını izler (varsayılan: sunucu). Yeni docker kurulumu iç ağda.",
+      "description": "otomatik: Docker'da iç ağdaki uygulama orada kalır. Diğerlerinde genel dış erişim açıksa agdan; kapalıysa (varsayılan) yeni Docker kurulumu ic, ötekiler sunucu olur: dışarı açık uygulama kapanır. ic = port açılmaz (yalnız Docker), sunucu = 127.0.0.1, agdan = ağdaki herkes.",
+      "value_labels": {
+        "otomatik": "genel ayara göre; varsayılan dışarı açmaz",
+        "ic": "port açılmaz; yalnız Docker ağından (Docker modu)",
+        "sunucu": "yalnız bu sunucu (127.0.0.1)",
+        "agdan": "ağdaki herkes"
+      },
       "risk": [
         "restarts-service"
       ],
