@@ -197,7 +197,8 @@
       "confirm": "none",
       "warnings": [
         "Salt okunur: ana klasör işaretini, Docker durumunu, kurulu yazılımları ve portları okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
-        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur.",
+        "Genel özettir: mod, port, sürüm ve erişim uygulamanın kendi okumasındadır (nginx_durum, mariadb_durum, redis_durum). kurulu ve portlar değerleri 64 karakterde kesilir."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -208,20 +209,9 @@
           "kurulu",
           "portlar",
           "nginx_kurulu",
-          "nginx_mod",
-          "nginx_port",
-          "nginx_surum",
-          "nginx_erisim",
           "mariadb_kurulu",
-          "mariadb_mod",
-          "mariadb_port",
-          "mariadb_surum",
-          "mariadb_erisim",
           "redis_kurulu",
-          "redis_mod",
-          "redis_port",
-          "redis_surum",
-          "redis_erisim",
+          "docker_kurulu",
           "docker_servis"
         ]
       }
@@ -343,6 +333,28 @@
         ]
       }
     },
+    "nginx_durum": {
+      "cmd": "ansible-playbook playbooks/nginx_durum.yml",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur: yalnız ana klasör işaretini ve nginx durumunu sunucudan okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.nginx_durum",
+        "keys": [
+          "ana_durum",
+          "nginx_kurulu",
+          "nginx_mod",
+          "nginx_port",
+          "nginx_surum",
+          "nginx_erisim"
+        ]
+      }
+    },
     "nginx_onizle": {
       "cmd": "ansible-playbook playbooks/nginx_onizle.yml --check --diff",
       "effects": [],
@@ -430,6 +442,25 @@
         ]
       }
     },
+    "docker_durum": {
+      "cmd": "ansible-playbook playbooks/docker_durum.yml",
+      "effects": [],
+      "requires_sudo": false,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur: yalnız Docker paketinin ve hizmetinin durumunu okur (ana klasör ve uygulamalar okunmaz); hiçbir şeyi değiştirmez, sudo istemez.",
+        "snap ya da paket dışı Docker'da docker_kurulu ve docker_servis unknown görünür."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.docker_durum",
+        "keys": [
+          "docker_kurulu",
+          "docker_servis",
+          "docker"
+        ]
+      }
+    },
     "docker_onizle": {
       "cmd": "ansible-playbook playbooks/docker_onizle.yml --check --diff",
       "effects": [],
@@ -508,6 +539,28 @@
           "degisen",
           "yukseltme",
           "gizli"
+        ]
+      }
+    },
+    "mariadb_durum": {
+      "cmd": "ansible-playbook playbooks/mariadb_durum.yml",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur: yalnız ana klasör işaretini ve MariaDB durumunu sunucudan okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.mariadb_durum",
+        "keys": [
+          "ana_durum",
+          "mariadb_kurulu",
+          "mariadb_mod",
+          "mariadb_port",
+          "mariadb_surum",
+          "mariadb_erisim"
         ]
       }
     },
@@ -595,6 +648,28 @@
           "degisen",
           "yukseltme",
           "gizli"
+        ]
+      }
+    },
+    "redis_durum": {
+      "cmd": "ansible-playbook playbooks/redis_durum.yml",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur: yalnız ana klasör işaretini ve Redis durumunu sunucudan okur; hiçbir şeyi değiştirmez. İşaret dosyası root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redis_durum",
+        "keys": [
+          "ana_durum",
+          "redis_kurulu",
+          "redis_mod",
+          "redis_port",
+          "redis_surum",
+          "redis_erisim"
         ]
       }
     },
@@ -999,7 +1074,7 @@
       "label": "Docker",
       "description": "Docker Engine ve Compose: kurulum kaynağı ve hizmet durumu.",
       "summary": {
-        "action": "kurulum_durum",
+        "action": "docker_durum",
         "items": [
           {
             "key": "docker",
@@ -1017,7 +1092,7 @@
       "label": "nginx",
       "description": "Kurulu nginx'in modu, portu, ağ erişimi ve sürümü.",
       "summary": {
-        "action": "kurulum_durum",
+        "action": "nginx_durum",
         "items": [
           {
             "key": "nginx_kurulu",
@@ -1035,7 +1110,7 @@
       "label": "MariaDB",
       "description": "Kurulu MariaDB'in modu, portu, ağ erişimi ve sürümü.",
       "summary": {
-        "action": "kurulum_durum",
+        "action": "mariadb_durum",
         "items": [
           {
             "key": "mariadb_kurulu",
@@ -1053,7 +1128,7 @@
       "label": "Redis",
       "description": "Kurulu Redis'in modu, portu, ağ erişimi ve sürümü.",
       "summary": {
-        "action": "kurulum_durum",
+        "action": "redis_durum",
         "items": [
           {
             "key": "redis_kurulu",
@@ -1166,7 +1241,7 @@
         "docker_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "docker_durum",
         "key": "docker",
         "absent": "yok",
         "not_applicable": [
@@ -1190,7 +1265,7 @@
         "nginx_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "nginx_durum",
         "key": "nginx_mod",
         "absent": "yok",
         "ignore": [
@@ -1208,7 +1283,7 @@
         "nginx_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "nginx_durum",
         "key": "nginx_port",
         "absent": "yok",
         "not_applicable": [
@@ -1236,7 +1311,7 @@
         "nginx_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "nginx_durum",
         "key": "nginx_erisim",
         "absent": "yok",
         "ignore": [
@@ -1259,7 +1334,7 @@
         "nginx_yukselt"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "nginx_durum",
         "key": "nginx_surum",
         "absent": "yok",
         "not_applicable": [
@@ -1282,7 +1357,7 @@
         "mariadb_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "mariadb_durum",
         "key": "mariadb_mod",
         "absent": "yok",
         "ignore": [
@@ -1303,7 +1378,7 @@
         "mariadb_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "mariadb_durum",
         "key": "mariadb_port",
         "absent": "yok",
         "not_applicable": [
@@ -1331,7 +1406,7 @@
         "mariadb_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "mariadb_durum",
         "key": "mariadb_erisim",
         "absent": "yok",
         "ignore": [
@@ -1355,7 +1430,7 @@
         "mariadb_yukselt"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "mariadb_durum",
         "key": "mariadb_surum",
         "absent": "yok",
         "not_applicable": [
@@ -1378,7 +1453,7 @@
         "redis_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "redis_durum",
         "key": "redis_mod",
         "absent": "yok",
         "ignore": [
@@ -1399,7 +1474,7 @@
         "redis_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "redis_durum",
         "key": "redis_port",
         "absent": "yok",
         "not_applicable": [
@@ -1427,7 +1502,7 @@
         "redis_kur"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "redis_durum",
         "key": "redis_erisim",
         "absent": "yok",
         "ignore": [
@@ -1451,7 +1526,7 @@
         "redis_yukselt"
       ],
       "state": {
-        "action": "kurulum_durum",
+        "action": "redis_durum",
         "key": "redis_surum",
         "absent": "yok",
         "not_applicable": [

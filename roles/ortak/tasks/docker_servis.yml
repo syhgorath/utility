@@ -1,0 +1,17 @@
+# Docker hizmetinin ve Docker tabanının durumu (salt okunur, --check'te de çalışır). Girdi: kurulum_docker_durum (docker_kontrol rolü).
+# Sonuç: k_docker_servis = evet|durmus|yok|unknown · k_docker_kurulu = evet|durmus|hayir|unknown. snap / paket dışı Docker'ın birimi bilinmez: ikisi de unknown.
+- name: Docker service state
+  ansible.builtin.command: systemctl is-active docker
+  register: kurulum_docker_birim
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Docker service summary
+  ansible.builtin.set_fact:
+    k_docker_servis: >-
+      {{ 'yok' if kurulum_docker_durum == 'yok'
+         else (('evet' if kurulum_docker_birim.stdout | trim == 'active' else 'durmus') if kurulum_docker_durum in ['resmi', 'dagitim'] else 'unknown') }}
+    k_docker_kurulu: >-
+      {{ 'hayir' if kurulum_docker_durum == 'yok'
+         else (('evet' if kurulum_docker_birim.stdout | trim == 'active' else 'durmus') if kurulum_docker_durum in ['resmi', 'dagitim'] else 'unknown') }}

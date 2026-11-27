@@ -5,11 +5,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 ## [Unreleased]
 
 ### Eklendi
+- **Uygulama başına okuma:** `docker_durum` (sudo istemez), `nginx_durum`, `mariadb_durum`, `redis_durum`. Salt okunur; her biri yalnız kendi uygulamasını okur ve bildirir. Uygulama ayar kartlarının özeti ve `state.action` bu eylemlere taşındı (Saat ve Sistem kartları değişmedi).
 - **Seçenek açıklamaları:** erişim, mod ve Docker kaynağı ayarlarında `settings[].value_labels` (listede "değer — açıklama"; kaydedilen değer aynı); KeyLab'ın yeni sürümünü gerektirir.
 - Erişim ve mod açıklamaları netleştirildi (davranış değişmedi): `otomatik` kurulu uygulamanın erişimini her durumda **korumaz**; genel dış erişim kapalıyken dışarı açık uygulama kapanır, docker'da iç ağdaki uygulama iç ağda kalır.
 - **Sabit hedefli eylemler:** `docker_onizle/kur/yukselt`, `mariadb_onizle/kur/yukselt`, `redis_onizle/kur/yukselt` (`nginx_*` deseni). `docker_yukselt` **her zaman reddeder** (Docker taban yükseltmesi desteklenmez).
 - **Uygulama başına mod:** `kurulum_nginx_mod`, `kurulum_mariadb_mod`, `kurulum_redis_mod` (`otomatik` varsayılan = `kurulum_mod`; verilmezse davranış değişmez). Kurulu uygulamada mod değiştirilemez.
-- **`kurulum_durum`:** `mariadb_*` ve `redis_*` anahtarları (`kurulu|mod|port|surum|erisim`) ve `docker_servis` (toplam 20 anahtar).
+- **`kurulum_durum` genel özet oldu** (9 anahtar): eski dört anahtar (`ana_durum`, `docker`, `kurulu`, `portlar`), `nginx_kurulu`, `mariadb_kurulu`, `redis_kurulu`, `docker_kurulu`, `docker_servis`. Mod, port, sürüm ve erişim uygulamanın kendi okumasındadır. `kurulu`/`portlar` 64 karakterde kesilir (README); tutarlılık denetimi taşmayı yakalar.
 - **Ayar kartları:** `docker`, `mariadb`, `redis` (katalog kimlikleriyle aynı) ve nginx'e mod ayarı; `state.not_applicable` KeyLab'ın yeni sürümünü gerektirir.
 
 ### Düzeltilen
@@ -17,11 +18,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ### Değişti
 - **Hızlandırma: SSH pipelining açıldı** (`ansible.cfg`). Modüller sunucuya dosya olarak kopyalanmaz; görev başına daha az gidiş geliş. Yeni sunucuda bir kez zararsız `[WARNING]: Module remote_tmp /root/.ansible/tmp did not exist …` satırı çıkar (klasör oluşturulur, tekrarlamaz). Gerçek VM'de (Ubuntu 26.04) nginx tek tık zinciri tek koşuda 146 sn → 91 sn. **Sınır:** sudoers'ta `Defaults requiretty` olan sunucuda `sudo` isteyen eylemler `must have a tty` hatasıyla durur (Debian/Ubuntu varsayılanında yok; çözüm README'de).
-- `kurulum_durum` değer sözleşmesi (yayımlanmamış nginx anahtarları): native `<uyg>_surum=dagitim` (önceden dpkg sürümü), yalnız iç ağda `<uyg>_port=ic` (önceden `yok`).
+- Durum değer sözleşmesi (yayımlanmamış nginx anahtarları): native `<uyg>_surum=dagitim` (önceden dpkg sürümü), yalnız iç ağda `<uyg>_port=ic` (önceden `yok`).
 
 ### Eklendi
 - **Sabit hedefli nginx eylemleri:** `nginx_onizle`, `nginx_kur` (ön koşul `nginx_onizle`), `nginx_yukselt` (yıkıcı, sunucu adıyla onay). `kurulum_yazilim` bu eylemlerde etkisizdir; kurulu nginx'in modu korunur (`kurulum_mod` yalnız yeni kurulumda). Eylem sonuç satırı `utility.nginx_*`.
-- **`kurulum_durum` yeni anahtarlar** (sunucudaki gerçek durumdan; eski dört anahtar ve sıraları aynı): `nginx_kurulu` (`evet|durmus|hayir|unknown`), `nginx_mod`, `nginx_port`, `nginx_surum`, `nginx_erisim` (`ic|sunucu|agdan`); kurulu değilken `yok`, okunamazsa `unknown`.
+- **nginx durum anahtarları** (sunucudaki gerçek durumdan; `nginx_durum`'da, `nginx_kurulu` ayrıca `kurulum_durum`'da): `nginx_kurulu` (`evet|durmus|hayir|unknown`), `nginx_mod`, `nginx_port`, `nginx_surum`, `nginx_erisim` (`ic|sunucu|agdan`); kurulu değilken `yok`, okunamazsa `unknown`.
 - **KeyLab nginx ayar kartı:** `setting_cards` `nginx` ve üç ayar (port, ağ erişimi, sürüm); `state.absent` / `state.ignore` KeyLab'ın yeni sürümünü gerektirir.
 - Kurulu uygulamada yayın portu ya da erişimi değişecekse `kur`/önizleme çıktısında `DEĞİŞECEK` uyarısı.
 - **Uygulama başına ağ erişimi:** `kurulum_nginx_erisim`, `kurulum_mariadb_erisim`, `kurulum_redis_erisim` = `otomatik` (varsayılan) | `ic` (yalnız iç ağ: port yayınlanmaz, port denetimi yapılmaz, ortak `.env`'de `<YZ>_HOST_PORT` silinir; yalnız docker modu, native'de reddedilir) | `sunucu` (127.0.0.1) | `agdan` (0.0.0.0). `kurulum_dis_erisim` yalnız `otomatik` iken etkilidir.

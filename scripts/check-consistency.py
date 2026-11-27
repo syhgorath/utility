@@ -12,6 +12,9 @@ Kurallar:
   - README.md her profil için bir satır içerir.
   - component.json'daki her değişken, bir rolün defaults'ında tanımlıdır ve türü/varsayılanı uyuşur.
   - Her eylemin sonuç anahtarları, playbook'taki SSHPOCKET_RESULT satırında yazılır.
+  - Uygulama okumaları (docker_durum, <uyg>_durum): salt okunur, yalnız kendi uygulamasının anahtarları; playbook sonuç satırı beyan edilenle birebir aynı.
+  - Kart özeti ve ayar state'i var olan bir eylemin beyan ettiği anahtarı okur; uygulama kartları kendi okumasına bağlıdır.
+  - kurulum_durum genel özettir (kurulu, portlar, her uygulamanın <uyg>_kurulu'su); kurulu/portlar'ın en uzun hali 64 karaktere sığar.
 """
 import json
 import re
@@ -121,9 +124,85 @@ for name, a in comp["actions"].items():
     if f"SSHPOCKET_RESULT {comp['id']}.{name}" not in text:
         err(f"eylem {name}: playbook 'SSHPOCKET_RESULT {comp['id']}.{name}' satırını yazmıyor")
 
+# uygulama okumaları ve kart bağları. Uygulama kimlikleri küratörlü katalogdan gelir: yeni uygulama eklenince okuması ve sınır hesabı da istenir.
+katalog = re.search(r"^kurulum_katalog:\n((?:[ #].*\n|\n)+)", read("roles/ortak/defaults/main.yml"), re.M)
+yazilimlar = re.findall(r"^  ([a-z0-9_]+):\s*$", katalog.group(1), re.M) if katalog else []
+if not yazilimlar:
+    err("roles/ortak/defaults/main.yml: kurulum_katalog uygulamaları okunamadı")
+uygulamalar = ["docker"] + yazilimlar
+actions = comp["actions"]
+
+
+def keys_of(name):
+    return (actions.get(name, {}).get("outputs") or {}).get("keys", [])
+
+
+def sonuc_anahtarlari(name):
+    """playbooks/<name>.yml sonuç satırının ('SSHPOCKET_RESULT' ile başlayan katlanmış msg bloğu) yazdığı anahtarlar, yazılış sırasıyla."""
+    m = re.search(rf"^ +SSHPOCKET_RESULT {re.escape(comp['id'])}\.{name}\b.*\n(?:          .*\n?)*", read(f"playbooks/{name}.yml"), re.M)
+    return re.findall(r"(?<![A-Za-z0-9_.])([a-z][a-z0-9_]*)=", m.group(0)) if m else []
+
+
+for uyg in uygulamalar:
+    ad = f"{uyg}_durum"
+    beklenen = (["docker_kurulu", "docker_servis", "docker"] if uyg == "docker"
+                else ["ana_durum"] + [f"{uyg}_{k}" for k in ("kurulu", "mod", "port", "surum", "erisim")])
+    a = actions.get(ad)
+    if a is None or not (ROOT / f"playbooks/{ad}.yml").is_file():
+        err(f"uygulama {uyg}: salt okunur {ad} eylemi ve playbooks/{ad}.yml olmalı")
+        continue
+    if a.get("effects") != [] or a.get("confirm") != "none":
+        err(f"eylem {ad}: salt okunur olmalı (effects [], confirm none)")
+    if a.get("cmd") != f"ansible-playbook playbooks/{ad}.yml":
+        err(f"eylem {ad}: cmd kendi playbook'unu çalıştırmalı")
+    if a.get("requires_sudo") is not (uyg != "docker"):
+        err(f"eylem {ad}: requires_sudo yanlış (işaret dosyası okuyan sudo ister; docker_durum istemez)")
+    if keys_of(ad) != beklenen:
+        err(f"eylem {ad}: yalnız kendi anahtarlarını bildirmeli; beklenen {beklenen}, gelen {keys_of(ad)}")
+    if sonuc_anahtarlari(ad) != beklenen:
+        err(f"playbooks/{ad}.yml sonuç satırı yalnız kendi anahtarlarını yazmalı; beklenen {beklenen}, gelen {sonuc_anahtarlari(ad)}")
+    if uyg != "docker":
+        pb = read(f"playbooks/{ad}.yml")
+        if re.findall(r"^    k_d_yz:\s*(\S+)\s*$", pb, re.M) != [uyg] or "loop" in pb:
+            err(f"playbooks/{ad}.yml yalnız {uyg} uygulamasını okumalı (k_d_yz: {uyg}, döngü yok)")
+
+for c in comp.get("setting_cards", []):
+    s = c.get("summary")
+    if c["id"] in uygulamalar and (not s or s.get("action") != f"{c['id']}_durum"):
+        err(f"kart {c['id']}: summary.action {c['id']}_durum olmalı")
+    if s:
+        for item in s.get("items", []):
+            if item.get("key") not in keys_of(s.get("action")):
+                err(f"kart {c['id']}: özet anahtarı '{item.get('key')}' {s.get('action')} çıktısında yok")
+for uyg in uygulamalar:
+    if uyg not in {c["id"] for c in comp.get("setting_cards", [])}:
+        err(f"uygulama {uyg}: setting_cards kartı yok")
+for st in comp.get("settings", []):
+    state = st.get("state")
+    if not state:
+        continue
+    if st.get("card") in uygulamalar and state.get("action") != f"{st['card']}_durum":
+        err(f"ayar {st['id']}: state.action {st['card']}_durum olmalı")
+    for k in state.get("keys") or [state.get("key")]:
+        if k not in keys_of(state.get("action")):
+            err(f"ayar {st['id']}: state anahtarı '{k}' {state.get('action')} çıktısında yok")
+
+# genel özet: yayımlanmış katalog kurulu ve portlar'ı buradan okur
+for k in ["ana_durum", "docker", "kurulu", "portlar", "docker_servis"] + [f"{u}_kurulu" for u in uygulamalar]:
+    if k not in keys_of("kurulum_durum"):
+        err(f"eylem kurulum_durum: genel özet anahtarı '{k}' eksik")
+# sonuç değeri 64 karakterde sessizce kesilir: liste değerlerinin EN UZUN hali sığmalı (native ve docker aynı uzunlukta; port en çok 5 hane)
+SINIR = 64
+en_uzun = {"kurulu": "+".join(f"{u}:docker" for u in uygulamalar), "portlar": "+".join(f"{u}:65535" for u in yazilimlar)}
+for k, deger in en_uzun.items():
+    if len(deger) > SINIR:
+        err(f"kurulum_durum '{k}' en uzun halde {len(deger)} karakter (> {SINIR}): sonuç satırında sessizce kesilir; listenin biçimi değişmeli ({deger})")
+    if not re.search(rf"^          {k}=\{{\{{ [^\n]*truncate\({SINIR}, True, ''\)", read("playbooks/kurulum_durum.yml"), re.M):
+        err(f"playbooks/kurulum_durum.yml: '{k}' değeri {SINIR} karaktere sınırlanmalı")
+
 if errors:
     print("TUTARSIZLIK:")
     for e in errors:
         print("  -", e)
     sys.exit(1)
-print("OK: component.json, VERSION, CHANGELOG, README, profiller, değişkenler, sonuç satırları tutarlı")
+print("OK: component.json, VERSION, CHANGELOG, README, profiller, değişkenler, sonuç satırları, uygulama okumaları ve kartlar tutarlı")

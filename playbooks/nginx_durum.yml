@@ -1,0 +1,26 @@
+# Salt okunur nginx durumu: yalnız ana klasör işareti ve nginx okunur (genel özet: kurulum_durum). Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
+# Sonuç satırı: SSHPOCKET_RESULT utility.nginx_durum ana_durum=… nginx_kurulu=evet|durmus|hayir|unknown nginx_mod=… nginx_port=<N>|ic|yok|unknown nginx_surum=<etiket>|dagitim|yok|unknown nginx_erisim=ic|sunucu|agdan|yok|unknown
+- name: nginx durum (salt okunur)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min, date_time]
+  become: true
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    kurulum_islem: durum
+    # ön kontrol kurulum değişkenlerine (kurulum_yazilim, özel imaj) bağlı olmasın: yazılım türetmesi atlanır
+    k_sabit_yz: docker
+    k_d_yz: nginx
+  tasks:
+    - name: Read nginx
+      ansible.builtin.include_role: {name: ortak, tasks_from: uygulama_oku}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.nginx_durum ana_durum={{ kurulum_ana_durum }}
+          nginx_kurulu={{ k_st.nginx.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_mod={{ k_st.nginx.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_port={{ k_st.nginx.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_surum={{ k_st.nginx.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          nginx_erisim={{ k_st.nginx.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}

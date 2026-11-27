@@ -13,7 +13,7 @@ setup_file() {
   krun kurulum_durum
   [ "$status" -eq 0 ]
   [ "$(recap_changed)" = 0 ]
-  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir nginx_mod=yok nginx_port=yok nginx_surum=yok nginx_erisim=yok mariadb_kurulu=hayir mariadb_mod=yok mariadb_port=yok mariadb_surum=yok mariadb_erisim=yok redis_kurulu=hayir redis_mod=yok redis_port=yok redis_surum=yok redis_erisim=yok docker_servis=yok" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir mariadb_kurulu=hayir redis_kurulu=hayir docker_kurulu=hayir docker_servis=yok" ]
 }
 
 @test "Docker yokken docker modu durur ve HİÇBİR ŞEY oluşturmaz" {
@@ -190,7 +190,13 @@ setup_file() {
 @test "durum: kurulu yazılımlar ve portlar" {
   krun kurulum_durum
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu mariadb_kurulu=evet mariadb_mod=docker mariadb_port=3306 mariadb_surum=11.4.13 mariadb_erisim=sunucu redis_kurulu=evet redis_mod=docker redis_port=6379 redis_surum=7.4.12 redis_erisim=sunucu docker_servis=evet" ]] || false
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet mariadb_kurulu=evet redis_kurulu=evet docker_kurulu=evet docker_servis=evet" ]
+  krun nginx_durum
+  [ "$(result)" = "SSHPOCKET_RESULT utility.nginx_durum ana_durum=tamam nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu" ]
+  krun mariadb_durum
+  [ "$(result)" = "SSHPOCKET_RESULT utility.mariadb_durum ana_durum=tamam mariadb_kurulu=evet mariadb_mod=docker mariadb_port=3306 mariadb_surum=11.4.13 mariadb_erisim=sunucu" ]
+  krun redis_durum
+  [ "$(result)" = "SSHPOCKET_RESULT utility.redis_durum ana_durum=tamam redis_kurulu=evet redis_mod=docker redis_port=6379 redis_surum=7.4.12 redis_erisim=sunucu" ]
 }
 
 @test "TEMİZ ÇIKTI: hiçbir koşuda beklenmeyen [WARNING] / [DEPRECATION WARNING] yok" {
