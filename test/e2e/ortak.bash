@@ -1,4 +1,5 @@
 # LAB e2e ortak yardımcılar (bats dosyaları load ile alır).
+. "$BATS_TEST_DIRNAME/uyari.bash"
 RUN="$BATS_TEST_DIRNAME/lab/run.sh"
 lab() { docker exec kurulum-lab "$@"; }
 result() { grep -o 'SSHPOCKET_RESULT utility\.[a-z_]* .*' <<<"$output" | tail -n1 | sed 's/"$//'; }

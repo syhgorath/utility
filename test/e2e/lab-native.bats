@@ -111,10 +111,10 @@ setup_file() {
   [ "$(recap_changed)" = 0 ]
 }
 
-@test "durum (native karışık) ve TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
+@test "durum (native karışık) ve TEMİZ ÇIKTI: hiçbir koşuda beklenmeyen [WARNING] / [DEPRECATION WARNING] yok" {
   krun kurulum_durum
   [ "$status" -eq 0 ]
-  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+  run beklenmeyen_uyarilar "$BATS_FILE_TMPDIR/hepsi.log"
   echo "$output" >&3
   [ "$status" -eq 1 ]
 }

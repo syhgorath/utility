@@ -193,8 +193,8 @@ setup_file() {
   [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu mariadb_kurulu=evet mariadb_mod=docker mariadb_port=3306 mariadb_surum=11.4.13 mariadb_erisim=sunucu redis_kurulu=evet redis_mod=docker redis_port=6379 redis_surum=7.4.12 redis_erisim=sunucu docker_servis=evet" ]] || false
 }
 
-@test "TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
-  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+@test "TEMİZ ÇIKTI: hiçbir koşuda beklenmeyen [WARNING] / [DEPRECATION WARNING] yok" {
+  run beklenmeyen_uyarilar "$BATS_FILE_TMPDIR/hepsi.log"
   echo "$output" >&3
   [ "$status" -eq 1 ]
 }

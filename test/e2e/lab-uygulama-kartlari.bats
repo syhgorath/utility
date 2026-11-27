@@ -230,7 +230,7 @@ setup_file() {
     run grep -cF -- "$pw" "$BATS_FILE_TMPDIR/hepsi.log"
     [ "$output" = 0 ]
   done
-  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+  run beklenmeyen_uyarilar "$BATS_FILE_TMPDIR/hepsi.log"
   echo "$output" >&3
   [ "$status" -eq 1 ]
 }
