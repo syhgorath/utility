@@ -64,7 +64,7 @@ Kurulum değişkenleri:
 | `kurulum_ana_klasor` | path | `/srv/homelab` | Docker uygulamalarının klasörü; sunucu başına bir kez (aşağıda) |
 | `kurulum_docker_kaynak` | enum | `resmi` | `resmi` (download.docker.com) · `dagitim` (docker.io) |
 | `kurulum_dis_erisim` | bool | `false` | Eski genel seçim, yalnız erişim `otomatik` iken: `false` = `127.0.0.1`; `true` = `0.0.0.0` (**uyarı çıkar**, ufw'ye yazılmaz) |
-| `kurulum_<yz>_erisim` | enum | `otomatik` | `ic` (yalnız iç ağ, port yok; yalnız docker) · `sunucu` (`127.0.0.1`) · `agdan` (`0.0.0.0`). `otomatik`: kurulu uygulama durumunu korur; yeni docker mariadb/redis `ic`, diğerleri `sunucu` (`kurulum_dis_erisim=true` ise `agdan`) |
+| `kurulum_<yz>_erisim` | enum | `otomatik` | `ic` (yalnız iç ağ, port yok; yalnız docker) · `sunucu` (`127.0.0.1`) · `agdan` (`0.0.0.0`). `otomatik`: docker'da iç ağdaki uygulama orada kalır; diğerlerinde `kurulum_dis_erisim=true` ise `agdan`, `false` (varsayılan) ise yeni docker mariadb/redis `ic`, ötekiler `sunucu` (**dışarı açık uygulama `otomatik`'e çevrilirse kapanır**) |
 | `kurulum_docker_ag` | string | `kurulum` | Docker uygulamalarının ortak ağı; docker uygulaması kuruluyken değiştirilemez |
 | `kurulum_<yz>_port` | int | 8080 / 3306 / 6379 | Sunucuya yayınlanan port |
 | `kurulum_<yz>_surum` | enum | 1.30.6 / 11.4.13 / 7.4.12 | Küratörlü imaj sürümü (docker modu; **latest yok**) |

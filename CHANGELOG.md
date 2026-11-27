@@ -5,6 +5,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 ## [Unreleased]
 
 ### Eklendi
+- **Seçenek açıklamaları:** erişim, mod ve Docker kaynağı ayarlarında `settings[].value_labels` (listede "değer — açıklama"; kaydedilen değer aynı); KeyLab'ın yeni sürümünü gerektirir.
+- Erişim ve mod açıklamaları netleştirildi (davranış değişmedi): `otomatik` kurulu uygulamanın erişimini her durumda **korumaz**; genel dış erişim kapalıyken dışarı açık uygulama kapanır, docker'da iç ağdaki uygulama iç ağda kalır.
 - **Sabit hedefli eylemler:** `docker_onizle/kur/yukselt`, `mariadb_onizle/kur/yukselt`, `redis_onizle/kur/yukselt` (`nginx_*` deseni). `docker_yukselt` **her zaman reddeder** (Docker taban yükseltmesi desteklenmez).
 - **Uygulama başına mod:** `kurulum_nginx_mod`, `kurulum_mariadb_mod`, `kurulum_redis_mod` (`otomatik` varsayılan = `kurulum_mod`; verilmezse davranış değişmez). Kurulu uygulamada mod değiştirilemez.
 - **`kurulum_durum`:** `mariadb_*` ve `redis_*` anahtarları (`kurulu|mod|port|surum|erisim`) ve `docker_servis` (toplam 20 anahtar).
