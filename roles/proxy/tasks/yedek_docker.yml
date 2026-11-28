@@ -1,0 +1,23 @@
+# Yükseltme öncesi: veri (SQLite veritabanı, anahtarlar) ve sertifikalar. Veritabanı yazılırken kopyalanmasın diye konteyner kopya boyunca durdurulur;
+# kopya başarısız olsa da yeniden başlatılır. Yedek dizini 0700 root: sertifika özel anahtarları içerir.
+- name: Copy data and certificates while the proxy is stopped
+  when: not ansible_check_mode
+  block:
+    - name: Stop the proxy for a consistent copy
+      ansible.builtin.command: docker compose --progress quiet -p kurulum-proxy -f {{ k_ana }}/proxy/compose.yml stop
+      changed_when: true
+
+    - name: Copy data, certificates and the compose file
+      ansible.builtin.shell: |
+        set -eu
+        umask 077
+        cp -a '{{ k_ana }}/proxy/data' '{{ k_yedek }}/data'
+        cp -a '{{ k_ana }}/proxy/letsencrypt' '{{ k_yedek }}/letsencrypt'
+        cp -p '{{ k_ana }}/proxy/compose.yml' '{{ k_yedek }}/compose.yml'
+      args:
+        executable: /bin/bash
+      changed_when: true
+  always:
+    - name: Start the proxy again
+      ansible.builtin.command: docker compose --progress quiet -p kurulum-proxy -f {{ k_ana }}/proxy/compose.yml start
+      changed_when: true

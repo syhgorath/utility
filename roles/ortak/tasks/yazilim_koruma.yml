@@ -20,6 +20,7 @@
   register: kurulum_paket_var
   changed_when: false
   check_mode: false
+  when: k_katalog.paket != ''
 
 - name: Stop on one-mode-per-software violation
   ansible.builtin.assert:
@@ -62,6 +63,7 @@
          else ('ic' if not k_kurulu and k_mod == 'docker' and k_yz in ['mariadb', 'redis'] else 'sunucu'))) }}
   vars:
     k_istek: "{{ lookup('vars', 'kurulum_' ~ k_yz ~ '_erisim') }}"
+  when: k_yz != 'proxy'
 
 - name: Native software cannot be limited to the docker network
   ansible.builtin.assert:
@@ -76,6 +78,59 @@
   ansible.builtin.set_fact:
     k_bind: "{{ {'ic': '', 'sunucu': '127.0.0.1', 'agdan': '0.0.0.0'}[k_erisim] }}"
     k_port: "{{ 0 if k_erisim == 'ic' else k_port | int }}"
+  when: k_yz != 'proxy'
+
+# Nginx Proxy Manager: 80/443 her zaman ağa açık; yalnız yönetim ekranının (81) yayını seçilir. 'otomatik' kararı sunucunun adreslerinden verilir
+# (files/yonetim_karari.py, salt okunur); elle agdan/sunucu seçimi her zaman üstündür, adresler o zaman yalnız uyarı için okunur.
+- name: Read the server addresses for the proxy admin port
+  ansible.builtin.command:
+    argv: ["{{ ansible_facts.python.executable }}", -I, "-"]
+    stdin: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../roles/proxy/files/yonetim_karari.py') }}"
+  register: kurulum_proxy_adres
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: k_yz == 'proxy' and kurulum_islem != 'kaldir'
+
+- name: Resolve the proxy publish (80/443 public, admin port selectable)
+  ansible.builtin.set_fact:
+    k_erisim: agdan
+    k_bind: "0.0.0.0"
+    k_port: 80
+    k_p_adres: "{{ k_p_okunan }}"
+    k_yonetim: "{{ k_p_secim }}"
+    k_yonetim_bind: "{{ {'agdan': '0.0.0.0', 'sunucu': '127.0.0.1'}[k_p_secim] }}"
+  vars:
+    # betik koşamazsa güvenli yön: sunucu
+    k_p_okunan: >-
+      {{ (kurulum_proxy_adres.stdout | from_json) if kurulum_proxy_adres.rc | default(1) == 0 and kurulum_proxy_adres.stdout | default('') | trim != ''
+         else {'karar': 'sunucu', 'genel': none, 'neden': 'adres okuması çalışmadı; güvenli yön seçildi'} }}
+    k_p_secim: >-
+      {{ (k_kayit_eski.yonetim | default('sunucu')) if kurulum_islem == 'kaldir'
+         else (k_p_okunan.karar if kurulum_proxy_yonetim == 'otomatik' else kurulum_proxy_yonetim) }}
+  when: k_yz == 'proxy'
+
+- name: Explain the proxy admin port decision
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: proxy yönetim erişimi: {{ 'otomatik -> ' ~ k_yonetim ~ ' (' ~ k_p_adres.neden ~ ')' if kurulum_proxy_yonetim == 'otomatik'
+      else k_yonetim ~ ' (elle seçildi)' }}
+  when: k_yz == 'proxy' and kurulum_islem != 'kaldir'
+
+- name: Warn that the admin port is opened on a server with a public address
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI yönetim ekranı (81) elle 'agdan' seçildi ve {{ 'sunucuda genel IPv4 adresi var (' ~ (k_p_adres.genel[:3] | join(', ')) ~ '): 81 İNTERNETE AÇIK olur'
+      if k_p_adres.genel else 'sunucunun adresleri okunamadı: 81 internete açık olabilir' }}. ufw engellemez. İstemiyorsanız kurulum_proxy_yonetim=sunucu ya da otomatik seçin.
+  when: >-
+    k_yz == 'proxy' and kurulum_islem != 'kaldir' and kurulum_proxy_yonetim == 'agdan' and (k_p_adres.genel is none or k_p_adres.genel | length > 0)
+
+- name: Warn about an admin port change of the installed proxy
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: DEĞİŞECEK proxy yönetim erişimi {{ k_kayit_eski.yonetim | default('?') }} -> {{ k_yonetim }}. Değer verilmeyen değişken varsayılanına döner
+      (otomatik: sunucunun adreslerine göre); konteyner yeniden yaratılır (kısa kesinti).
+  when: k_yz == 'proxy' and k_kurulu and kurulum_islem != 'kaldir' and k_kayit_eski.yonetim | default('') != k_yonetim
 
 # Kurulu uygulamada yayın değişecekse söylenir: değer verilmeyen değişken VARSAYILANA döner (ör. port 8080), önizlemede görülsün
 - name: Warn about publish changes to an installed application
@@ -148,7 +203,23 @@
       kurulum: UYARI dış erişim açık ({{ k_bind }}:{{ k_port }}). Docker'ın yayınladığı port ufw kurallarına TAKILMAZ: ufw 'deny incoming' olsa bile bu port
       ağdaki herkese açıktır ve ufw kuralı eklemek erişimi kısıtlamaz. Kısıtlamak için kurulum_{{ k_yz }}_erisim=sunucu ya da ic seçin (veya sunucunun önünde
       ayrı bir güvenlik duvarı kullanın).
-  when: k_erisim == 'agdan' and k_mod == 'docker' and kurulum_islem != 'kaldir'
+  when: k_erisim == 'agdan' and k_mod == 'docker' and k_yz != 'proxy' and kurulum_islem != 'kaldir'
+
+- name: Warn about the public proxy ports
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI proxy 80 ve 443 portlarını ağa açar. Docker'ın yayınladığı port ufw kurallarına TAKILMAZ: ufw 'deny incoming' olsa bile bu portlar açıktır.
+  when: k_yz == 'proxy' and kurulum_islem != 'kaldir'
+
+- name: Warn about the proxy admin port and the first login
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'kurulum: UYARI yönetim ekranı (81) sunucunun TÜM ağ arayüzlerinde açık ve ufw onu engellemez; sunucu internetten erişilebiliyorsa 81 de erişilebilir.
+      NAT arkasındaki bulut sunucusu algılanmaz. 81 portunu internete yönlendirmeyin; emin değilseniz kurulum_proxy_yonetim=sunucu seçin.' if k_yonetim == 'agdan'
+      else 'kurulum: yönetim ekranı yalnız sunucunun kendisinde (127.0.0.1:81). Erişim için SSH tüneli: ssh -L 8181:127.0.0.1:81 <kullanıcı>@<sunucu>, sonra http://127.0.0.1:8181' }}
+      İLK GİRİŞ: kurulumdan HEMEN SONRA yönetim ekranını açıp yönetici hesabını güçlü bir parolayla oluşturun. Hesap oluşturulana kadar ekrana ulaşan HERKES
+      (ortak docker ağındaki konteynerler dahil) yöneticiyi kendisi oluşturabilir. Bu paket parola üretmez, istemez ve NPM'ye giriş yapmaz.
+  when: k_yz == 'proxy' and kurulum_islem != 'kaldir'
 
 - name: Show the ufw suggestion for an exposed native service
   ansible.builtin.debug:

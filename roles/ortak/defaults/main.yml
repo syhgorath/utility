@@ -1,6 +1,6 @@
 # Ortak varsayılanlar (component.json vars ile aynı). Playbook'lar bu dosyayı vars_files ile yükler (include_role varsayılanları sonraki görevlere açmaz);
 # sshpocket değerleri -e ile verir ve bunların üstündedir.
-kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis
+kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis | proxy
 kurulum_mod: "native"               # native | docker (yazilim=docker iken yok sayılır)
 kurulum_ana_klasor: "/srv/homelab"
 # Uygulama başına mod: otomatik = genel kurulum_mod. Kurulu uygulamanın modu değiştirilemez (kaldir + kur).
@@ -23,6 +23,10 @@ kurulum_mariadb_imaj_ozel: ""
 kurulum_redis_port: 6379
 kurulum_redis_surum: "7.4.12"
 kurulum_redis_imaj_ozel: ""
+# Nginx Proxy Manager (yalnız docker). Portları sabittir: 80 ve 443 her zaman ağa açık, yönetim ekranı 81.
+# yönetim ekranı (81): agdan (0.0.0.0) | sunucu (127.0.0.1) | otomatik (genel IPv4 adresi varsa ya da adres okunamazsa sunucu, yoksa agdan)
+kurulum_proxy_yonetim: "otomatik"
+kurulum_proxy_surum: "2.17.1"
 
 # İç değerler
 kurulum_supported_os: { Ubuntu: ["26.04"] }
@@ -58,3 +62,16 @@ kurulum_katalog:
     gizli: [REDIS_PASSWORD]
     surumler: ["7.2.17", "7.4.12", "8.2.11", "8.4.8"]
     native_veri: /var/lib/redis
+  proxy:
+    imaj: jc21/nginx-proxy-manager
+    konteyner_port: 80
+    paket: ""                         # native modu yok
+    servis: ""
+    gizli: []                         # parola üretilmez: yönetici hesabını kullanıcı NPM ekranında oluşturur
+    surumler: ["2.17.0", "2.17.1"]
+    native_veri: ""
+    portlar: [80, 443, 81]            # hepsi boş olmalı
+    ek_dizinler: [letsencrypt]        # <ana>/proxy/ altında data/ dışında
+    saglik_deneme: 100                # ilk açılış dakikalar sürebilir (3 sn aralıkla)
+# genel özetin kurulu/portlar listelerine GİRMEYEN uygulamalar: o değerler 64 karakterde kesilir ve dolu (README "Sonuç satırı sınırı")
+kurulum_ozet_disi: [proxy]

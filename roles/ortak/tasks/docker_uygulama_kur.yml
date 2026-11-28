@@ -23,6 +23,13 @@
     label: "{{ item.path }}"
   register: kd_uygulama_dizinleri
 
+- name: Extra application directories
+  ansible.builtin.file:
+    path: "{{ k_ana }}/{{ k_yz }}/{{ item }}"
+    state: directory
+  loop: "{{ k_katalog.ek_dizinler | default([]) }}"
+  register: kd_ek_dizinler
+
 # Döngü YOK: include_role'u döngüye sokmak iç döngülerin `item`ini gölgeler (ansible uyarısı); iki ayrı görev.
 - name: Secrets
   ansible.builtin.include_role:
@@ -76,7 +83,7 @@
     docker inspect -f '{% raw %}{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}{% endraw %}' kurulum-{{ k_yz }}
   register: kurulum_saglik
   until: kurulum_saglik.stdout in ['true healthy', 'true none']
-  retries: 40
+  retries: "{{ k_katalog.saglik_deneme | default(40) }}"
   delay: 3
   changed_when: false
   when: not ansible_check_mode
@@ -93,3 +100,5 @@
       bind: "{{ k_bind }}"
       erisim: "{{ k_erisim }}"
       veri_yolu: "{{ k_ana }}/{{ k_yz }}/data"
+    # proxy'nin birden çok portu vardır: diğer uygulamaların port denetimi bunları da dolu sayar
+    k_kayit_ek: "{{ {'portlar': k_katalog.portlar, 'yonetim': k_yonetim} if k_yz == 'proxy' else {} }}"

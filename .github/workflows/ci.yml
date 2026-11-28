@@ -33,11 +33,11 @@ jobs:
           python3 -m venv .venv
           .venv/bin/pip install --quiet --require-hashes --only-binary :all: -r requirements.txt
           for p in playbooks/*.yml; do .venv/bin/ansible-playbook --syntax-check -i test/inventory-local.yml "$p"; done
-      - name: Hızlı testler (statik desen denetimi, yedek/saat/güvenlik duvarı betiği birim testleri, release betikleri)
+      - name: Hızlı testler (statik desen denetimi, yedek/saat/güvenlik duvarı/proxy yayını betiği birim testleri, release betikleri)
         run: |
           set -eu
           sudo apt-get install -y --no-install-recommends bats >/dev/null
           bash test/test_static.sh
-          bats test/backup.bats test/clock.bats test/duvar.bats
+          bats test/backup.bats test/clock.bats test/duvar.bats test/proxy_yonetim.bats
           bash test/test_release_script.sh
           bash test/test_release_publish.sh

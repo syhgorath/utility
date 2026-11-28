@@ -1,0 +1,9 @@
+# Kaldır: veriye dokunmaz (<ana>/proxy/data ve letsencrypt/ kalır: yönlendirmeler, hesap ve sertifikalar durur).
+- name: Remove docker mode
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kaldir.yml"
+  when: k_kurulu
+
+- name: Nothing to remove
+  ansible.builtin.debug:
+    msg: "kurulum: proxy bu sunucuda kurulumla yönetilmiyor; yapılacak bir şey yok."
+  when: not k_kurulu

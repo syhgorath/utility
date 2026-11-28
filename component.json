@@ -211,6 +211,7 @@
           "nginx_kurulu",
           "mariadb_kurulu",
           "redis_kurulu",
+          "proxy_kurulu",
           "docker_kurulu",
           "docker_servis"
         ]
@@ -224,7 +225,8 @@
       "warnings": [
         "Önizleme dosya farkını ve plan sonucunu gösterir; paket kurulumu, imaj çekme, konteyner başlatma, servis ve parola üretimi --check'te ÇALIŞMAZ, gösterilmez.",
         "kurulum_yazilim ve kurulum_mod seçilen yazılımı belirler; kurulu sürüm istenenden farklıysa yukseltme=evet görünür (kur sürümü sessizce değiştirmez, yukselt gerekir).",
-        "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host)."
+        "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host).",
+        "proxy (Nginx Proxy Manager) yalnız Docker'dır: 80/443 her zaman ağa açılır, yönetim ekranı (81) kurulum_proxy_yonetim ile seçilir (kurulum_dis_erisim etkisiz). Kurulumdan hemen sonra ilk girişi yapın."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -258,7 +260,8 @@
         "Bir yazılım için tek mod vardır; zaten kurulu ve yönetilmeyen paketlere (kayıtsız) dokunulmaz, koşu durur.",
         "nginx/mariadb/redis native kurulumunda paketin kurulum betiği servisi dağıtım varsayılanıyla kısaca başlatır; varsayılan port doluysa koşu başlamadan durur.",
         "İkinci kur değişiklik yapmaz (idempotent). Aynı sunucuda eşzamanlı iki koşu sunucudaki kilitle engellenir.",
-        "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host)."
+        "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host).",
+        "proxy (Nginx Proxy Manager) yalnız Docker'dır: 80/443 her zaman ağa açılır, yönetim ekranı (81) kurulum_proxy_yonetim ile seçilir (kurulum_dis_erisim etkisiz). Kurulumdan hemen sonra ilk girişi yapın."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -768,6 +771,121 @@
           "gizli"
         ]
       }
+    },
+    "proxy_durum": {
+      "cmd": "ansible-playbook playbooks/proxy_durum.yml",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur: yalnız ana klasör işaretini, Nginx Proxy Manager konteynerini ve güvenlik duvarı durumunu sunucudan okur; hiçbir şeyi değiştirmez, NPM'ye giriş yapmaz. İşaret dosyası root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur.",
+        "proxy_adres sunucuya bağlandığınız addır (yönetim 'sunucu' ise 127.0.0.1:81); adresin tarayıcıdan açıldığı denenmez."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.proxy_durum",
+        "keys": [
+          "ana_durum",
+          "proxy_kurulu",
+          "proxy_mod",
+          "proxy_port",
+          "proxy_surum",
+          "proxy_yonetim",
+          "proxy_adres",
+          "proxy_duvar"
+        ]
+      }
+    },
+    "proxy_onizle": {
+      "cmd": "ansible-playbook playbooks/proxy_onizle.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur (--check --diff): proxy_kur'un ne yapacağını gösterir; imaj ve konteyner işlemleri çalışmaz.",
+        "Hedef sabittir: Nginx Proxy Manager (kurulum_yazilim etkisiz). Yalnız Docker modunda kurulur; Docker taban kurulu olmalı.",
+        "Değer verilmeyen değişken varsayılanına döner (yönetim ekranı otomatik, küratörlü varsayılan sürüm): değişecek yayın çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yönetim ekranı (81) otomatik iken: sunucuda genel IPv4 adresi varsa ya da adres okunamazsa yalnız sunucuda, yoksa ağa açık; seçim ve nedeni çıktıdadır. NAT arkasındaki bulut sunucusu algılanmaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.proxy_onizle",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "proxy_kur": {
+      "cmd": "ansible-playbook playbooks/proxy_kur.yml",
+      "effects": [
+        "installs-package",
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "proxy_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "Nginx Proxy Manager'ı kurar ya da yönetim ekranının yayınını uygular; servis kısa süre kesilebilir. Kurulu sürümü DEĞİŞTİRMEZ (proxy_yukselt). İlk kurulum imaj indirdiği için dakikalar sürebilir.",
+        "Hedef sabittir: Nginx Proxy Manager (kurulum_yazilim etkisiz). Yalnız Docker modunda kurulur; Docker taban kurulu olmalı.",
+        "80, 443 ve 81 portlarının üçü de boş olmalı; biri doluysa hiçbir şey değiştirilmeden durur. 80 ve 443 ağa açılır; Docker'ın yayınladığı port ufw'ye takılmaz.",
+        "Yönetim ekranı (81) otomatik iken: sunucuda genel IPv4 adresi varsa ya da adres okunamazsa yalnız sunucuda, yoksa ağa açık; seçim ve nedeni çıktıdadır. NAT arkasındaki bulut sunucusu algılanmaz.",
+        "Kurulumdan HEMEN SONRA yönetim ekranında (81) yönetici hesabını güçlü parolayla oluşturun: hesap oluşana kadar ekrana ulaşan herkes yöneticiyi oluşturabilir. 81'i internete yönlendirmeyin. Paket parola istemez ve üretmez."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.proxy_kur",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "proxy_yukselt": {
+      "cmd": "ansible-playbook playbooks/proxy_yukselt.yml",
+      "effects": [
+        "installs-package",
+        "changes-config",
+        "destructive"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "proxy_onizle"
+      ],
+      "confirm": "type-server-name",
+      "warnings": [
+        "Yalnızca kurulu Nginx Proxy Manager daha YENİ bir küratörlü sürüme yükseltilir; önce veri ve sertifikalar kopyalanır. GERİ DÜŞÜRME YOKTUR.",
+        "Hedef sabittir: Nginx Proxy Manager (kurulum_yazilim etkisiz). Yalnız Docker modunda kurulur; Docker taban kurulu olmalı.",
+        "O anki yönetim yayını da uygulanır. Değer verilmeyen değişken varsayılanına döner (otomatik): değişecek yayın çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yedek alınırken ve yeni sürüm başlarken proxy durur: bu sırada yönlendirdiği tüm siteler erişilemez.",
+        "Yönetim ekranı (81) otomatik iken: sunucuda genel IPv4 adresi varsa ya da adres okunamazsa yalnız sunucuda, yoksa ağa açık; seçim ve nedeni çıktıdadır. NAT arkasındaki bulut sunucusu algılanmaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.proxy_yukselt",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
     }
   },
   "vars": [
@@ -827,11 +945,12 @@
         "docker",
         "nginx",
         "mariadb",
-        "redis"
+        "redis",
+        "proxy"
       ],
       "default": "docker",
       "group": "Seçim",
-      "description": "Kurulacak yazılım: docker (taban), nginx, mariadb, redis. Eylemler seçili yazılım için çalışır."
+      "description": "Kurulacak yazılım: docker (taban), nginx, mariadb, redis, proxy (Nginx Proxy Manager; yalnız Docker). Eylemler seçili yazılım için çalışır."
     },
     {
       "name": "kurulum_mod",
@@ -842,7 +961,7 @@
       ],
       "default": "native",
       "group": "Seçim",
-      "description": "native = dağıtım paketi (apt); docker = Docker konteyneri. docker yazılımı için yok sayılır. Bir yazılım için tek mod."
+      "description": "native = dağıtım paketi (apt); docker = Docker konteyneri. docker ve proxy yazılımları için yok sayılır. Bir yazılım için tek mod."
     },
     {
       "name": "kurulum_nginx_mod",
@@ -1035,6 +1154,29 @@
       "default": "",
       "group": "redis",
       "description": "Küratörlü listede olmayan sürüm için 'redis:<sürüm>' (örn. redis:8.4.8); boş = listeden. Latest ve etiketsiz reddedilir. UYARI: listede olmayan sürüm denenmemiştir."
+    },
+    {
+      "name": "kurulum_proxy_yonetim",
+      "type": "enum",
+      "values": [
+        "otomatik",
+        "agdan",
+        "sunucu"
+      ],
+      "default": "otomatik",
+      "group": "proxy",
+      "description": "Nginx Proxy Manager yönetim ekranı (81). otomatik = sunucuda genel IPv4 adresi varsa ya da adres okunamazsa sunucu, yoksa agdan (NAT arkasındaki bulut sunucusu algılanmaz). agdan = tüm IPv4 arayüzleri (ufw engellemez). sunucu = yalnız 127.0.0.1 (SSH tüneli). 80/443 hep açıktır."
+    },
+    {
+      "name": "kurulum_proxy_surum",
+      "type": "enum",
+      "values": [
+        "2.17.0",
+        "2.17.1"
+      ],
+      "default": "2.17.1",
+      "group": "proxy",
+      "description": "Nginx Proxy Manager imaj sürümü (jc21/nginx-proxy-manager; sabit etiket, latest yok; küratörlü liste artan sırada). Yükseltme yalnızca yukselt eyleminde."
     }
   ],
   "setting_cards": [
@@ -1173,6 +1315,36 @@
             "key": "redis_duvar_engel",
             "label": "Duvar engeli",
             "ok": "hayir"
+          }
+        ]
+      }
+    },
+    {
+      "id": "proxy",
+      "label": "Nginx Proxy Manager",
+      "description": "Ters vekil: 80/443 ağa açık. Kurar kurmaz 81'de yönetici hesabını güçlü parolayla oluşturun; 81'i internete açmayın. 'otomatik' NAT arkasındaki bulut sunucusunu algılamaz.",
+      "summary": {
+        "action": "proxy_durum",
+        "items": [
+          {
+            "key": "proxy_kurulu",
+            "label": "Kurulu"
+          },
+          {
+            "key": "proxy_surum",
+            "label": "Sürüm"
+          },
+          {
+            "key": "proxy_adres",
+            "label": "Yönetim adresi"
+          },
+          {
+            "key": "proxy_yonetim",
+            "label": "Yönetim erişimi"
+          },
+          {
+            "key": "proxy_duvar",
+            "label": "Güvenlik duvarı"
           }
         ]
       }
@@ -1568,6 +1740,55 @@
         "not_applicable": [
           "dagitim"
         ]
+      }
+    },
+    {
+      "id": "proxy_yonetim",
+      "card": "proxy",
+      "label": "Yönetim erişimi",
+      "var": "kurulum_proxy_yonetim",
+      "description": "81 kimlere açık. otomatik: genel IPv4 varsa ya da okunamazsa sunucu, yoksa agdan; NAT arkasındaki bulut sunucusu algılanmaz (emin değilseniz sunucu). sunucu için SSH tüneli: ssh -L 8181:127.0.0.1:81 <kullanıcı>@<sunucu>. Değer verilmezse otomatik.",
+      "value_labels": {
+        "otomatik": "genel IP varsa yalnız sunucu, yoksa ağa açık",
+        "agdan": "tüm arayüzler; internetten de açılabilir",
+        "sunucu": "yalnız sunucu; SSH tüneliyle"
+      },
+      "risk": [
+        "restarts-service",
+        "access-loss"
+      ],
+      "risk_note": "'agdan' 81'i ağa açar (ufw engellemez). 'sunucu' ağdan erişimi kapatır. Değişince proxy yeniden başlar.",
+      "apply_via": [
+        "proxy_kur"
+      ],
+      "state": {
+        "action": "proxy_durum",
+        "key": "proxy_yonetim",
+        "absent": "yok",
+        "ignore": [
+          "otomatik"
+        ]
+      }
+    },
+    {
+      "id": "proxy_surum",
+      "card": "proxy",
+      "label": "Sürüm",
+      "var": "kurulum_proxy_surum",
+      "description": "Docker imaj sürümü; kurulu sürümü yalnız proxy_yukselt yükseltir. Değer verilmezse 2.17.1.",
+      "risk": [
+        "restarts-service",
+        "data-loss"
+      ],
+      "risk_note": "Yükseltme (proxy_yukselt) geri alınamaz: geri düşürme yoktur; yönlendirilen siteler kısa süre kesilir.",
+      "apply_via": [
+        "proxy_kur",
+        "proxy_yukselt"
+      ],
+      "state": {
+        "action": "proxy_durum",
+        "key": "proxy_surum",
+        "absent": "yok"
       }
     }
   ]

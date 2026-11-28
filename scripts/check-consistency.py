@@ -14,6 +14,7 @@ Kurallar:
   - Her eylemin sonuç anahtarları, playbook'taki SSHPOCKET_RESULT satırında yazılır.
   - Uygulama okumaları (docker_durum, <uyg>_durum): salt okunur, yalnız kendi uygulamasının anahtarları; playbook sonuç satırı beyan edilenle birebir aynı.
   - Kart özeti ve ayar state'i var olan bir eylemin beyan ettiği anahtarı okur; uygulama kartları kendi okumasına bağlıdır.
+  - proxy yalnız kendi anahtarlarını bildirir ve kurulu/portlar listelerine girmez (kurulum_ozet_disi).
   - Port sahibi uygulamaların kartı <uyg>_duvar'ı beklentisiz, <uyg>_duvar_engel'i ok=hayir ile gösterir.
   - kurulum_durum genel özettir (kurulu, portlar, her uygulamanın <uyg>_kurulu'su); kurulu/portlar'ın en uzun hali 64 karaktere sığar.
 """
@@ -101,7 +102,7 @@ for v in comp.get("vars", []):
         m = re.search(rf"^{re.escape(v['name'])}:\s*(\d+)", role_defaults, re.M)
         if not m or int(m.group(1)) != v.get("default"):
             err(f"{v['name']}: defaults ile component.json int varsayılanı uyuşmuyor")
-    mm = re.fullmatch(r"kurulum_(nginx|mariadb|redis)_surum", v["name"])
+    mm = re.fullmatch(r"kurulum_(nginx|mariadb|redis|proxy)_surum", v["name"])
     if mm:
         cat = re.search(rf"^  {mm.group(1)}:\n(?:    .*\n)*?    surumler: \[([^\]]*)\]", role_defaults, re.M)
         listed = re.findall(r'"([^"]+)"', cat.group(1)) if cat else []
@@ -131,6 +132,15 @@ yazilimlar = re.findall(r"^  ([a-z0-9_]+):\s*$", katalog.group(1), re.M) if kata
 if not yazilimlar:
     err("roles/ortak/defaults/main.yml: kurulum_katalog uygulamaları okunamadı")
 uygulamalar = ["docker"] + yazilimlar
+# genel özetin kurulu/portlar listelerine girmeyen uygulamalar (64 karakter sınırı)
+m = re.search(r"^kurulum_ozet_disi: \[([a-z0-9_, ]*)\]", read("roles/ortak/defaults/main.yml"), re.M)
+ozet_disi = [x.strip() for x in m.group(1).split(",") if x.strip()] if m else []
+if ozet_disi != ["proxy"]:
+    err("roles/ortak/defaults/main.yml: kurulum_ozet_disi [proxy] olmalı (yeni uygulama kurulu/portlar listelerine eklenmez; sınır dolu)")
+if read("roles/port_kaydi/tasks/durum.yml").count("item.key in kurulum_ozet_disi") + read("roles/port_kaydi/tasks/durum.yml").count("item.key not in kurulum_ozet_disi") != 2:
+    err("roles/port_kaydi/tasks/durum.yml: kurulum_ozet_disi uygulamaları kurulu/portlar listelerinden çıkarılmalı")
+OZEL_ANAHTAR = {"docker": ["docker_kurulu", "docker_servis", "docker"],
+                "proxy": ["ana_durum"] + [f"proxy_{k}" for k in ("kurulu", "mod", "port", "surum", "yonetim", "adres", "duvar")]}
 actions = comp["actions"]
 
 
@@ -146,8 +156,7 @@ def sonuc_anahtarlari(name):
 
 for uyg in uygulamalar:
     ad = f"{uyg}_durum"
-    beklenen = (["docker_kurulu", "docker_servis", "docker"] if uyg == "docker"
-                else ["ana_durum"] + [f"{uyg}_{k}" for k in ("kurulu", "mod", "port", "surum", "erisim", "duvar", "duvar_engel")])
+    beklenen = OZEL_ANAHTAR.get(uyg, ["ana_durum"] + [f"{uyg}_{k}" for k in ("kurulu", "mod", "port", "surum", "erisim", "duvar", "duvar_engel")])
     a = actions.get(ad)
     if a is None or not (ROOT / f"playbooks/{ad}.yml").is_file():
         err(f"uygulama {uyg}: salt okunur {ad} eylemi ve playbooks/{ad}.yml olmalı")
@@ -184,7 +193,8 @@ for c in comp.get("setting_cards", []):
     duvar, engel = ogeler.get(f"{c['id']}_duvar"), ogeler.get(f"{c['id']}_duvar_engel")
     if duvar is None or "ok" in duvar or "max_abs" in duvar:
         err(f"kart {c['id']}: özet {c['id']}_duvar öğesini beklentisiz göstermeli")
-    if engel is None or engel.get("ok") != "hayir":
+    # proxy portu docker yayınıdır: ufw onu engelleyemez, engel uyarısı yoktur
+    if c["id"] != "proxy" and (engel is None or engel.get("ok") != "hayir"):
         err(f"kart {c['id']}: özet {c['id']}_duvar_engel öğesi ok=hayir olmalı (uyarı yalnız engelde)")
     if len(ogeler) > 6:
         err(f"kart {c['id']}: özet en çok 6 öğe taşır")
@@ -201,13 +211,22 @@ for st in comp.get("settings", []):
         if k not in keys_of(state.get("action")):
             err(f"ayar {st['id']}: state anahtarı '{k}' {state.get('action')} çıktısında yok")
 
+# otomatik yönetim kararı yalnız IPv4 adreslerine bakar: 81 yalnız IPv4'te yayınlanmalı (IPv6 yayını eklenirse karar da IPv6'yı değerlendirmeli)
+sablon = read("roles/proxy/templates/compose.yml.j2")
+yayinlar = re.findall(r'^\s*- "([^"]*:81)"\s*$', sablon, re.M)
+if yayinlar != ["{{ k_yonetim_bind }}:81:81"] or "{'agdan': '0.0.0.0', 'sunucu': '127.0.0.1'}[" not in read("roles/ortak/tasks/yazilim_koruma.yml"):
+    err("proxy yönetim portu (81) yalnız IPv4 adresine bağlanmalı (0.0.0.0 ya da 127.0.0.1); otomatik karar IPv6'ya bakmaz")
+if '"-4"' not in read("roles/proxy/files/yonetim_karari.py"):
+    err("yonetim_karari.py yalnız IPv4 adreslerini okumalı (81 yalnız IPv4'te yayınlanır)")
+
 # genel özet: yayımlanmış katalog kurulu ve portlar'ı buradan okur
 for k in ["ana_durum", "docker", "kurulu", "portlar", "docker_servis"] + [f"{u}_kurulu" for u in uygulamalar]:
     if k not in keys_of("kurulum_durum"):
         err(f"eylem kurulum_durum: genel özet anahtarı '{k}' eksik")
 # sonuç değeri 64 karakterde sessizce kesilir: liste değerlerinin EN UZUN hali sığmalı (native ve docker aynı uzunlukta; port en çok 5 hane)
 SINIR = 64
-en_uzun = {"kurulu": "+".join(f"{u}:docker" for u in uygulamalar), "portlar": "+".join(f"{u}:65535" for u in yazilimlar)}
+en_uzun = {"kurulu": "+".join(f"{u}:docker" for u in uygulamalar if u not in ozet_disi),
+           "portlar": "+".join(f"{u}:65535" for u in yazilimlar if u not in ozet_disi)}
 for k, deger in en_uzun.items():
     if len(deger) > SINIR:
         err(f"kurulum_durum '{k}' en uzun halde {len(deger)} karakter (> {SINIR}): sonuç satırında sessizce kesilir; listenin biçimi değişmeli ({deger})")

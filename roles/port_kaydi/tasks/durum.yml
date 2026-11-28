@@ -1,8 +1,11 @@
 # Durum eylemi için salt okunur özet (işaret dosyasından): kurulu yazılımlar (id:mod), portlar (id:port) ve satır satır ayrıntı.
 - name: Collect installed software from the marker
   ansible.builtin.set_fact:
-    k_kurulu_liste: "{{ k_kurulu_liste | default([]) + [item.key ~ ':' ~ item.value.mod] }}"
-    k_port_liste: "{{ k_port_liste | default([]) + ([item.key ~ ':' ~ item.value.port] if (item.value.port | default(0) | int) > 0 else []) }}"
+    # kurulum_ozet_disi (proxy) listelere girmez (64 karakter sınırı); ekrandaki satırlarda görünür
+    k_kurulu_liste: "{{ k_kurulu_liste | default([]) + ([] if item.key in kurulum_ozet_disi else [item.key ~ ':' ~ item.value.mod]) }}"
+    k_port_liste: >-
+      {{ k_port_liste | default([])
+         + ([item.key ~ ':' ~ item.value.port] if item.key not in kurulum_ozet_disi and (item.value.port | default(0) | int) > 0 else []) }}
     k_durum_satirlari: >-
       {{ k_durum_satirlari | default([]) + [item.key ~ ': mod=' ~ item.value.mod ~ ' sürüm=' ~ item.value.surum ~ ' port=' ~ item.value.port
          ~ ' bind=' ~ (item.value.bind | default('')) ~ ' veri=' ~ item.value.veri_yolu] }}

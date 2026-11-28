@@ -38,7 +38,7 @@
           ansible.builtin.include_role:
             name: port_kaydi
             tasks_from: kontrol
-          when: kurulum_islem in ['kur', 'yukselt'] and k_erisim != 'ic'   # yayınlanmayan portun çakışması olmaz
+          when: kurulum_islem in ['kur', 'yukselt'] and k_erisim != 'ic' and k_yz != 'proxy'   # yayınlanmayan portun çakışması olmaz
 
         - name: Docker mode needs a usable Docker (install it first with kurulum_yazilim=docker)
           ansible.builtin.assert:
@@ -48,6 +48,13 @@
               ile Docker taban kurulumunu yapın. snap/paket dışı Docker desteklenmez. Hiçbir şey değiştirilmedi.
             quiet: true
           when: k_mod == 'docker' and kurulum_islem in ['kur', 'yukselt']
+
+        # proxy'nin üç sabit portu birden boş olmalı (tek portlu denetim yetmez)
+        - name: Proxy port check
+          ansible.builtin.include_role:
+            name: proxy
+            tasks_from: port_kontrol
+          when: kurulum_islem in ['kur', 'yukselt'] and k_yz == 'proxy'
 
     - name: Create the ana klasör and markers
       ansible.builtin.include_role:
