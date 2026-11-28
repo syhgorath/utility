@@ -1,0 +1,28 @@
+# Salt okunur Redis Insight durumu: yalnız ana klasör işareti ve konteyner okunur. Hiçbir şey değiştirmez, arayüze bağlanmaz. İşaret dosyası 0640 root
+# olduğundan sudo ister.
+# Sonuç satırı: SSHPOCKET_RESULT utility.redisui_durum ana_durum=… redisui_kurulu=evet|durmus|hayir|unknown redisui_mod=docker|yok redisui_port=<N>|ic|yok|unknown redisui_surum=<etiket>|yok|unknown redisui_erisim=ic|sunucu|yok|unknown redisui_hedef=kurulum-redisui:5540|yok|unknown
+- name: redisui durum (salt okunur)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min, date_time]
+  become: true
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    kurulum_islem: durum
+    # ön kontrol kurulum değişkenlerine (kurulum_yazilim, özel imaj) bağlı olmasın: yazılım türetmesi atlanır
+    k_sabit_yz: docker
+    k_d_yz: redisui
+  tasks:
+    - name: Read Redis Insight
+      ansible.builtin.include_role: {name: ortak, tasks_from: uygulama_oku}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.redisui_durum ana_durum={{ kurulum_ana_durum }}
+          redisui_kurulu={{ k_st.redisui.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redisui_mod={{ k_st.redisui.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redisui_port={{ k_st.redisui.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redisui_surum={{ k_st.redisui.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redisui_erisim={{ k_st.redisui.erisim | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          redisui_hedef={{ k_st.redisui.hedef | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}

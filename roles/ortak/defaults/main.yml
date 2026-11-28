@@ -1,6 +1,6 @@
 # Ortak varsayılanlar (component.json vars ile aynı). Playbook'lar bu dosyayı vars_files ile yükler (include_role varsayılanları sonraki görevlere açmaz);
 # sshpocket değerleri -e ile verir ve bunların üstündedir.
-kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis | proxy
+kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis | proxy | redisui
 kurulum_mod: "native"               # native | docker (yazilim=docker iken yok sayılır)
 kurulum_ana_klasor: "/srv/homelab"
 # Uygulama başına mod: otomatik = genel kurulum_mod. Kurulu uygulamanın modu değiştirilemez (kaldir + kur).
@@ -27,6 +27,10 @@ kurulum_redis_imaj_ozel: ""
 # yönetim ekranı (81): agdan (0.0.0.0) | sunucu (127.0.0.1) | otomatik (genel IPv4 adresi varsa ya da adres okunamazsa sunucu, yoksa agdan)
 kurulum_proxy_yonetim: "otomatik"
 kurulum_proxy_surum: "2.17.1"
+# Redis Insight (yalnız docker; bu paketin kurduğu docker Redis'e bağlanır). Ağa açma seçeneği YOKTUR: kendi girişi yok.
+kurulum_redisui_erisim: "ic"        # ic (port yayınlanmaz) | sunucu (127.0.0.1)
+kurulum_redisui_surum: "3.10.2"
+kurulum_redisui_port: 5540          # erisim=sunucu iken 127.0.0.1'deki port (manifest değişkeni değil)
 
 # İç değerler
 kurulum_supported_os: { Ubuntu: ["26.04"] }
@@ -73,5 +77,19 @@ kurulum_katalog:
     portlar: [80, 443, 81]            # hepsi boş olmalı
     ek_dizinler: [letsencrypt]        # <ana>/proxy/ altında data/ dışında
     saglik_deneme: 100                # ilk açılış dakikalar sürebilir (3 sn aralıkla)
+    baglanti_anahtari: false          # ortak .env'e <YZ>_HOST/PORT yazılmaz
+  redisui:
+    imaj: redis/redisinsight
+    konteyner_port: 5540
+    paket: ""                         # native modu yok
+    servis: ""
+    gizli: [RI_ENCRYPTION_KEY]        # sunucuda üretilir, yükseltme ve yeniden kurulumda korunur
+    surumler: ["3.10.1", "3.10.2"]
+    native_veri: ""
+    hazirlik: true                    # roles/redisui/tasks/hazirlik.yml: veri sahibi ve Redis parolası
+    saglik_deneme: 60
+    baglanti_anahtari: false
 # genel özetin kurulu/portlar listelerine GİRMEYEN uygulamalar: o değerler 64 karakterde kesilir ve dolu (README "Sonuç satırı sınırı")
-kurulum_ozet_disi: [proxy]
+kurulum_ozet_disi: [proxy, redisui]
+# native modu olmayan uygulamalar: genel kurulum_mod uygulanmaz
+kurulum_yalniz_docker: [proxy, redisui]

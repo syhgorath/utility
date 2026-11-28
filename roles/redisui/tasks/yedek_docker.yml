@@ -1,0 +1,23 @@
+# Yükseltme öncesi: veri (SQLite) ve .env (şifreleme anahtarı: veri onsuz okunamaz). Veritabanı yazılırken kopyalanmasın diye konteyner kopya boyunca
+# durdurulur; kopya başarısız olsa da yeniden başlatılır. Yedek dizini 0700 root.
+- name: Copy data and secrets while Redis Insight is stopped
+  when: not ansible_check_mode
+  block:
+    - name: Stop Redis Insight for a consistent copy
+      ansible.builtin.command: docker compose --progress quiet -p kurulum-redisui -f {{ k_ana }}/redisui/compose.yml stop
+      changed_when: true
+
+    - name: Copy data, secrets and the compose file
+      ansible.builtin.shell: |
+        set -eu
+        umask 077
+        cp -a '{{ k_ana }}/redisui/data' '{{ k_yedek }}/data'
+        cp -p '{{ k_ana }}/redisui/.env' '{{ k_yedek }}/env'
+        cp -p '{{ k_ana }}/redisui/compose.yml' '{{ k_yedek }}/compose.yml'
+      args:
+        executable: /bin/bash
+      changed_when: true
+  always:
+    - name: Start Redis Insight again
+      ansible.builtin.command: docker compose --progress quiet -p kurulum-redisui -f {{ k_ana }}/redisui/compose.yml start
+      changed_when: true

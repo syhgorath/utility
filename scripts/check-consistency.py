@@ -14,7 +14,8 @@ Kurallar:
   - Her eylemin sonuç anahtarları, playbook'taki SSHPOCKET_RESULT satırında yazılır.
   - Uygulama okumaları (docker_durum, <uyg>_durum): salt okunur, yalnız kendi uygulamasının anahtarları; playbook sonuç satırı beyan edilenle birebir aynı.
   - Kart özeti ve ayar state'i var olan bir eylemin beyan ettiği anahtarı okur; uygulama kartları kendi okumasına bağlıdır.
-  - proxy yalnız kendi anahtarlarını bildirir ve kurulu/portlar listelerine girmez (kurulum_ozet_disi).
+  - Redis Insight ağa açılamaz: erişim yalnız ic | sunucu, compose yalnız 127.0.0.1'e yayınlar.
+  - proxy ve redisui yalnız kendi anahtarlarını bildirir ve kurulu/portlar listelerine girmez (kurulum_ozet_disi).
   - Port sahibi uygulamaların kartı <uyg>_duvar'ı beklentisiz, <uyg>_duvar_engel'i ok=hayir ile gösterir.
   - kurulum_durum genel özettir (kurulu, portlar, her uygulamanın <uyg>_kurulu'su); kurulu/portlar'ın en uzun hali 64 karaktere sığar.
 """
@@ -102,7 +103,7 @@ for v in comp.get("vars", []):
         m = re.search(rf"^{re.escape(v['name'])}:\s*(\d+)", role_defaults, re.M)
         if not m or int(m.group(1)) != v.get("default"):
             err(f"{v['name']}: defaults ile component.json int varsayılanı uyuşmuyor")
-    mm = re.fullmatch(r"kurulum_(nginx|mariadb|redis|proxy)_surum", v["name"])
+    mm = re.fullmatch(r"kurulum_(nginx|mariadb|redis|proxy|redisui)_surum", v["name"])
     if mm:
         cat = re.search(rf"^  {mm.group(1)}:\n(?:    .*\n)*?    surumler: \[([^\]]*)\]", role_defaults, re.M)
         listed = re.findall(r'"([^"]+)"', cat.group(1)) if cat else []
@@ -135,12 +136,13 @@ uygulamalar = ["docker"] + yazilimlar
 # genel özetin kurulu/portlar listelerine girmeyen uygulamalar (64 karakter sınırı)
 m = re.search(r"^kurulum_ozet_disi: \[([a-z0-9_, ]*)\]", read("roles/ortak/defaults/main.yml"), re.M)
 ozet_disi = [x.strip() for x in m.group(1).split(",") if x.strip()] if m else []
-if ozet_disi != ["proxy"]:
-    err("roles/ortak/defaults/main.yml: kurulum_ozet_disi [proxy] olmalı (yeni uygulama kurulu/portlar listelerine eklenmez; sınır dolu)")
+if ozet_disi != ["proxy", "redisui"]:
+    err("roles/ortak/defaults/main.yml: kurulum_ozet_disi [proxy, redisui] olmalı (yeni uygulama kurulu/portlar listelerine eklenmez; sınır dolu)")
 if read("roles/port_kaydi/tasks/durum.yml").count("item.key in kurulum_ozet_disi") + read("roles/port_kaydi/tasks/durum.yml").count("item.key not in kurulum_ozet_disi") != 2:
     err("roles/port_kaydi/tasks/durum.yml: kurulum_ozet_disi uygulamaları kurulu/portlar listelerinden çıkarılmalı")
 OZEL_ANAHTAR = {"docker": ["docker_kurulu", "docker_servis", "docker"],
-                "proxy": ["ana_durum"] + [f"proxy_{k}" for k in ("kurulu", "mod", "port", "surum", "yonetim", "adres", "duvar")]}
+                "proxy": ["ana_durum"] + [f"proxy_{k}" for k in ("kurulu", "mod", "port", "surum", "yonetim", "adres", "duvar")],
+                "redisui": ["ana_durum"] + [f"redisui_{k}" for k in ("kurulu", "mod", "port", "surum", "erisim", "hedef")]}
 actions = comp["actions"]
 
 
@@ -187,7 +189,8 @@ for c in comp.get("setting_cards", []):
 # güvenlik duvarı: portu olan her uygulama kartı değeri gösterir; uyarıyı yalnız <uyg>_duvar_engel verir (KeyLab özet öğesi tek beklenen değer taşır:
 # <uyg>_duvar'a 'ok' yazılırsa 'atlanir' gibi sorun olmayan değerler de uyarı olur)
 for c in comp.get("setting_cards", []):
-    if c["id"] not in yazilimlar:
+    # redisui ağa hiç yayınlanmaz (ic | 127.0.0.1): güvenlik duvarı öğesi yoktur
+    if c["id"] not in yazilimlar or c["id"] == "redisui":
         continue
     ogeler = {i.get("key"): i for i in (c.get("summary") or {}).get("items", [])}
     duvar, engel = ogeler.get(f"{c['id']}_duvar"), ogeler.get(f"{c['id']}_duvar_engel")
@@ -218,6 +221,14 @@ if yayinlar != ["{{ k_yonetim_bind }}:81:81"] or "{'agdan': '0.0.0.0', 'sunucu':
     err("proxy yönetim portu (81) yalnız IPv4 adresine bağlanmalı (0.0.0.0 ya da 127.0.0.1); otomatik karar IPv6'ya bakmaz")
 if '"-4"' not in read("roles/proxy/files/yonetim_karari.py"):
     err("yonetim_karari.py yalnız IPv4 adreslerini okumalı (81 yalnız IPv4'te yayınlanır)")
+
+# Redis Insight'ın kendi girişi yok: ağa açma seçeneği olmaz ve compose yalnız 127.0.0.1'e yayınlayabilir
+ri = {v["name"]: v for v in comp.get("vars", [])}.get("kurulum_redisui_erisim", {})
+if ri.get("values") != ["ic", "sunucu"] or ri.get("default") != "ic" or "kurulum_redisui_erisim in ['ic', 'sunucu']" not in read("roles/ortak/tasks/preflight.yml"):
+    err("kurulum_redisui_erisim yalnız ic (varsayılan) ve sunucu olmalı (ön kontrol dahil): arayüzün kendi girişi yok")
+ri_sablon = [s.strip() for s in read("roles/redisui/templates/compose.yml.j2").splitlines() if re.search(r':5540"\s*$', s) and s.strip().startswith('- "')]
+if ri_sablon != ['- "127.0.0.1:{{ k_port }}:5540"']:
+    err(f"Redis Insight compose yalnız 127.0.0.1'e yayınlayabilir; bulunan: {ri_sablon}")
 
 # genel özet: yayımlanmış katalog kurulu ve portlar'ı buradan okur
 for k in ["ana_durum", "docker", "kurulu", "portlar", "docker_servis"] + [f"{u}_kurulu" for u in uygulamalar]:

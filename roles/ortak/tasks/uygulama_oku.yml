@@ -20,7 +20,7 @@
     msg:
       - "ana klasör (sunucu): {{ k_ana_sunucu or '(yok)' }}; istenen: {{ k_ana }}; durum: {{ kurulum_ana_durum }}"
       - >-
-        {% set d = k_st[k_d_yz] %}{{ k_d_yz }} (sunucudan okunan): kurulu={{ d.kurulu }} mod={{ d.mod }} port={{ d.port }} sürüm={{ d.surum }}{{ ' (paket ' ~ d.paket ~ ')' if d.paket else '' }} erişim={{ d.erisim }}{{ (' yönetim=' ~ d.yonetim ~ ' adres=' ~ d.adres) if k_d_yz == 'proxy' else '' }}
+        {% set d = k_st[k_d_yz] %}{{ k_d_yz }} (sunucudan okunan): kurulu={{ d.kurulu }} mod={{ d.mod }} port={{ d.port }} sürüm={{ d.surum }}{{ ' (paket ' ~ d.paket ~ ')' if d.paket else '' }} erişim={{ d.erisim }}{{ (' yönetim=' ~ d.yonetim ~ ' adres=' ~ d.adres) if k_d_yz == 'proxy' else '' }}{{ (' NPM hedefi=' ~ d.hedef) if k_d_yz == 'redisui' else '' }}
       - "güvenlik duvarı: {{ k_duvar }} ({{ k_duvar_neden }})"
 
 # yalnız engel varken; ufw'ye bu paket yazmaz

@@ -16,6 +16,8 @@ yok "docker.sock mount yok" 'docker\.sock'
 yok "privileged konteyner yok" 'privileged: *true'
 # Nginx Proxy Manager bu değişkenlerdeki parolayı günlüğe yazar; paket NPM hesabı oluşturmaz
 yok "NPM yönetici parolası verilmiyor (INITIAL_ADMIN_*)" 'INITIAL_ADMIN_'
+# kullanım koşulları kullanıcı adına onaylanmaz (Redis Insight ve benzerleri)
+yok "koşul/lisans önceden onaylanmıyor (ACCEPT_TERMS, ACCEPT_EULA)" 'ACCEPT_(TERMS|EULA|LICENSE)'
 # gizli değer: parola üreten ve yazan görevler no_log
 n=$(grep -c 'no_log: true' "$ROOT/roles/env_dosyalari/tasks/gizli.yml")
 if [ "$n" -ge 4 ]; then ok "gizli.yml görevleri no_log"; else bad "gizli.yml no_log sayısı $n (<4)"; fi
@@ -24,6 +26,10 @@ if grep -q 'lookup(.password' $SRC; then bad "controller'da parola üretimi (loo
 for t in mariadb redis; do
   if grep -qiE 'PASSWORD: *[^"$ ]|PASSWORD=[A-Za-z0-9]' "$ROOT/roles/$t/templates/compose.yml.j2"; then bad "$t compose şablonunda sabit parola"; else ok "$t compose şablonunda parola yok"; fi
 done
+# Redis Insight: parola ve şifreleme anahtarı compose'a (environment) yazılmaz, yalnız env_file (.env 0600)
+ri="$ROOT/roles/redisui/templates/compose.yml.j2"
+if grep -vE '^\s*#' "$ri" | grep -qiE 'PASSWORD|ENCRYPTION_KEY'; then bad "redisui compose şablonunda parola/anahtar değişkeni"; else ok "redisui compose şablonunda parola/anahtar yok"; fi
+if grep -qE '^ +env_file: \.env$' "$ri"; then ok "redisui compose env_file kullanıyor"; else bad "redisui compose env_file: .env kullanmıyor"; fi
 # ansible.cfg: ssh pipelining açık kalır (silinirse her görev dosya kopyalar, koşular belirgin yavaşlar; sunucuda 'Defaults requiretty' sınırı README'de)
 pl=$("$PY" -I -c 'import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read(sys.argv[1], encoding="utf-8"); print(c.get("ssh_connection", "pipelining", fallback="yok"))' "$ROOT/ansible.cfg")
 expect_eq "ansible.cfg [ssh_connection] pipelining açık" "True" "$pl"

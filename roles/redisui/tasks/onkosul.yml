@@ -1,0 +1,25 @@
+# Redis Insight yalnız bu paketin kurduğu DOCKER Redis'e bağlanır. Salt okunur, --check'te de çalışır; hiçbir değişiklikten ÖNCE koşar.
+- name: Require a managed Redis in docker mode
+  ansible.builtin.assert:
+    that: (k_isaret.yazilimlar | default({})).get('redis', {}).get('mod', '') == 'docker'
+    fail_msg: >-
+      kurulum: Redis Insight bu paketin Docker modunda kurduğu Redis'e bağlanır.
+      {{ 'Sunucudaki Redis native kurulu; arayüz ona bağlanamaz (önce Redis''i kaldırıp Docker modunda kurun).'
+         if (k_isaret.yazilimlar | default({})).get('redis', {}).get('mod', '') == 'native'
+         else 'Bu paketle kurulu Redis yok: önce redis_kur eylemini kurulum_redis_mod=docker ile çalıştırın.' }}
+      Hiçbir şey değiştirilmedi.
+    quiet: true
+
+# yalnız varlığı denetlenir; değer okunmaz
+- name: Require the Redis password file
+  ansible.builtin.command: grep -q '^REDIS_PASSWORD=.' {{ k_ana }}/redis/.env
+  register: kurulum_redisui_parola_var
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Stop when the Redis password is missing
+  ansible.builtin.assert:
+    that: kurulum_redisui_parola_var.rc == 0
+    fail_msg: "kurulum: {{ k_ana }}/redis/.env içinde Redis parolası yok; önce redis_kur çalıştırın. Hiçbir şey değiştirilmedi."
+    quiet: true
