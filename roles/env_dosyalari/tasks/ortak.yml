@@ -11,10 +11,11 @@
     group: root
     mode: "0640"
   loop:
-    - { key: "{{ k_yz | upper }}_HOST", value: "{{ k_yz if k_mod == 'docker' else '127.0.0.1' }}" }
-    - { key: "{{ k_yz | upper }}_PORT", value: "{{ k_katalog.konteyner_port if k_mod == 'docker' else k_port }}" }
+    # proxy bir bağlantı hedefi değildir (tüketicisi yok): onun için HOST/PORT anahtarı yazılmaz
+    - { key: "{{ k_yz | upper }}_HOST", value: "{{ k_yz if k_mod == 'docker' else '127.0.0.1' }}", state: "{{ 'absent' if k_yz == 'proxy' else 'present' }}" }
+    - { key: "{{ k_yz | upper }}_PORT", value: "{{ k_katalog.konteyner_port if k_mod == 'docker' else k_port }}", state: "{{ 'absent' if k_yz == 'proxy' else 'present' }}" }
     # iç ağda yayınlanan port yoktur: satır boş ya da 0 yazılmaz, SİLİNİR
-    - { key: "{{ k_yz | upper }}_HOST_PORT", value: "{{ k_port }}", state: "{{ 'absent' if k_erisim == 'ic' else 'present' }}" }
+    - { key: "{{ k_yz | upper }}_HOST_PORT", value: "{{ k_port }}", state: "{{ 'absent' if k_erisim == 'ic' or k_yz == 'proxy' else 'present' }}" }
     - { key: "KURULUM_DOCKER_AG", value: "{{ k_docker_ag }}" }
   loop_control:
     label: "{{ item.key }}"

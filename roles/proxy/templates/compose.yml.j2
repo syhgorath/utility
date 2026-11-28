@@ -1,0 +1,24 @@
+# kurulum tarafından üretildi (Nginx Proxy Manager). Elle düzenlenirse sonraki kur/yukselt bu dosyayı yeniden yazar. Parola ve gizli değer YOKTUR:
+# yönetici hesabı ilk girişte NPM'nin kendi ekranında oluşturulur (ilk yönetici için ortam değişkeni bilerek verilmez: NPM o değeri günlüğüne yazar).
+services:
+  proxy:
+    image: {{ k_imaj }}
+    container_name: kurulum-proxy
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "{{ k_yonetim_bind }}:81:81"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    healthcheck:
+      test: ["CMD", "/usr/bin/check-health"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 120s
+networks:
+  default:
+    name: {{ kurulum_docker_ag }}
+    external: true

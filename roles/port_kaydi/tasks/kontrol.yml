@@ -4,10 +4,17 @@
   ansible.builtin.import_tasks: kontrol_ss.yml
 
 - name: Evaluate the ports
+  vars:
+    k_diger: "{{ k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | list }}"
   ansible.builtin.set_fact:
-    k_kayitli_portlar: "{{ k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | map(attribute='value.port') | map('int') | list }}"
+    # 'portlar' (proxy) tek 'port' alanına ek olarak sayılır: uygulama durmuş olsa da portları ona ayrılmıştır
+    k_kayitli_portlar: >-
+      {{ (k_diger | map(attribute='value.port') | map('int') | list)
+         + (k_diger | selectattr('value.portlar', 'defined') | map(attribute='value.portlar') | flatten | map('int') | list) }}
     k_kendi_port: "{{ (k_isaret.yazilimlar | default({})).get(k_yz, {}).get('port', 0) | int }}"
-    k_sahip: "{{ k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | selectattr('value.port', 'equalto', k_port | int) | map(attribute='key') | list }}"
+    k_sahip: >-
+      {{ ((k_diger | selectattr('value.port', 'equalto', k_port | int) | map(attribute='key') | list)
+          + (k_diger | selectattr('value.portlar', 'defined') | selectattr('value.portlar', 'contains', k_port | int) | map(attribute='key') | list)) | unique }}
 
 - name: Suggest a free port
   ansible.builtin.set_fact:

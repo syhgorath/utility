@@ -14,6 +14,8 @@ yok "ufw'ye yazılmıyor (ufw modülü/komutu)" 'community\.general\.ufw|ansible
 yok "docker grubuna kullanıcı eklenmiyor" 'groups: *docker|usermod .*docker|append: *true.*docker'
 yok "docker.sock mount yok" 'docker\.sock'
 yok "privileged konteyner yok" 'privileged: *true'
+# Nginx Proxy Manager bu değişkenlerdeki parolayı günlüğe yazar; paket NPM hesabı oluşturmaz
+yok "NPM yönetici parolası verilmiyor (INITIAL_ADMIN_*)" 'INITIAL_ADMIN_'
 # gizli değer: parola üreten ve yazan görevler no_log
 n=$(grep -c 'no_log: true' "$ROOT/roles/env_dosyalari/tasks/gizli.yml")
 if [ "$n" -ge 4 ]; then ok "gizli.yml görevleri no_log"; else bad "gizli.yml no_log sayısı $n (<4)"; fi

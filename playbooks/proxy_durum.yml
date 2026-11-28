@@ -1,0 +1,29 @@
+# Salt okunur Nginx Proxy Manager durumu: yalnız ana klasör işareti, proxy konteyneri ve portlarının güvenlik duvarı durumu okunur. Hiçbir şey değiştirmez,
+# NPM'ye giriş yapmaz ve API'sini kullanmaz. İşaret dosyası 0640 root olduğundan sudo ister.
+# Sonuç satırı: SSHPOCKET_RESULT utility.proxy_durum ana_durum=… proxy_kurulu=evet|durmus|hayir|unknown proxy_mod=docker|yok proxy_port=80|yok|unknown proxy_surum=<etiket>|yok|unknown proxy_yonetim=agdan|sunucu|yok|unknown proxy_adres=<adres>:81|yok|unknown proxy_duvar=atlanir|gerekmez|unknown
+- name: proxy durum (salt okunur)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min, date_time]
+  become: true
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    kurulum_islem: durum
+    # ön kontrol kurulum değişkenlerine (kurulum_yazilim, özel imaj) bağlı olmasın: yazılım türetmesi atlanır
+    k_sabit_yz: docker
+    k_d_yz: proxy
+  tasks:
+    - name: Read the proxy
+      ansible.builtin.include_role: {name: ortak, tasks_from: uygulama_oku}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.proxy_durum ana_durum={{ kurulum_ana_durum }}
+          proxy_kurulu={{ k_st.proxy.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          proxy_mod={{ k_st.proxy.mod | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          proxy_port={{ k_st.proxy.port | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          proxy_surum={{ k_st.proxy.surum | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          proxy_yonetim={{ k_st.proxy.yonetim }}
+          proxy_adres={{ k_st.proxy.adres | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          proxy_duvar={{ k_duvar }}

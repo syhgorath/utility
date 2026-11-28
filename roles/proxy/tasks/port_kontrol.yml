@@ -1,0 +1,33 @@
+# Nginx Proxy Manager'ın sabit portları (80, 443, 81) birden boş olmalı. Salt okunur, --check'te de çalışır; hiçbir değişiklikten ÖNCE koşar.
+# Kendi çalışan konteynerinin yayınladığı portlar dolu sayılmaz. Durmuş proxy'nin portunu başka süreç almışsa reddedilir.
+- name: List listening TCP ports
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/port_kaydi/tasks/kontrol_ss.yml"
+
+- name: Ports published by the running proxy itself
+  ansible.builtin.command: docker port kurulum-proxy
+  register: kurulum_proxy_yayin
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Evaluate the proxy ports
+  ansible.builtin.set_fact:
+    k_proxy_dolu: >-
+      {% set sonuc = [] %}{% for p in k_katalog.portlar %}{%
+        set sahip = k_diger | selectattr('value.port', 'defined') | selectattr('value.port', 'equalto', p) | map(attribute='key') | list %}{%
+        if sahip %}{% set _ = sonuc.append(p ~ ' (' ~ sahip | join(',') ~ ' uygulamasına verilmiş)') %}{%
+        elif p in k_dinlenen and p not in k_kendi %}{% set _ = sonuc.append(p ~ ' (sunucuda başka bir süreç dinliyor)') %}{%
+        endif %}{% endfor %}{{ sonuc }}
+  vars:
+    k_diger: "{{ k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', 'proxy') | list }}"
+    k_kendi: >-
+      {{ (kurulum_proxy_yayin.stdout_lines | default([]) | map('regex_replace', '^.*:([0-9]+)$', '\1') | map('int') | list)
+         if kurulum_proxy_yayin.rc | default(1) == 0 else [] }}
+
+- name: Refuse busy proxy ports
+  ansible.builtin.assert:
+    that: k_proxy_dolu | length == 0
+    fail_msg: >-
+      kurulum: Nginx Proxy Manager 80, 443 ve 81 portlarını ister; dolu: {{ k_proxy_dolu | join(', ') }}. O uygulamayı başka porta taşıyın ya da durdurun.
+      Hiçbir şey değiştirilmedi.
+    quiet: true

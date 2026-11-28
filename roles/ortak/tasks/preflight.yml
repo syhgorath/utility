@@ -47,7 +47,7 @@
 - name: Validate variable shapes
   ansible.builtin.assert:
     that:
-      - kurulum_yazilim in ['docker', 'nginx', 'mariadb', 'redis']
+      - kurulum_yazilim in ['docker', 'nginx', 'mariadb', 'redis', 'proxy']
       - kurulum_mod in ['native', 'docker']
       - kurulum_docker_kaynak in ['resmi', 'dagitim']
       - kurulum_dis_erisim | bool in [true, false]
@@ -64,10 +64,12 @@
       - kurulum_nginx_surum in kurulum_katalog.nginx.surumler
       - kurulum_mariadb_surum in kurulum_katalog.mariadb.surumler
       - kurulum_redis_surum in kurulum_katalog.redis.surumler
+      - kurulum_proxy_surum in kurulum_katalog.proxy.surumler
+      - kurulum_proxy_yonetim in ['otomatik', 'agdan', 'sunucu']
     fail_msg: >-
-      kurulum: değişken biçimi geçersiz. kurulum_yazilim: docker|nginx|mariadb|redis; kurulum_mod: native|docker; portlar 1-65535;
+      kurulum: değişken biçimi geçersiz. kurulum_yazilim: docker|nginx|mariadb|redis|proxy; kurulum_proxy_yonetim: otomatik|agdan|sunucu; kurulum_mod: native|docker; portlar 1-65535;
       sürümler küratörlü listeden (nginx {{ kurulum_katalog.nginx.surumler | join(', ') }}; mariadb {{ kurulum_katalog.mariadb.surumler | join(', ') }};
-      redis {{ kurulum_katalog.redis.surumler | join(', ') }}).
+      redis {{ kurulum_katalog.redis.surumler | join(', ') }}; proxy {{ kurulum_katalog.proxy.surumler | join(', ') }}).
     quiet: true
 
 - name: Validate the docker network name
@@ -86,8 +88,10 @@
     k_yz: "{{ k_sabit_yz | default(kurulum_yazilim) }}"
     # uygulama başına mod (kurulum_<yz>_mod) 'otomatik' değilse genel kurulum_mod'un önüne geçer
     k_mod_istek: "{{ lookup('ansible.builtin.vars', 'kurulum_' ~ (k_sabit_yz | default(kurulum_yazilim)) ~ '_mod', default='otomatik') }}"
+    # proxy (Nginx Proxy Manager) yalnız docker'dır: genel kurulum_mod ona uygulanmaz
     k_mod: >-
       {{ 'native' if (k_sabit_yz | default(kurulum_yazilim)) == 'docker'
+         else 'docker' if (k_sabit_yz | default(kurulum_yazilim)) == 'proxy'
          else (kurulum_mod if lookup('ansible.builtin.vars', 'kurulum_' ~ (k_sabit_yz | default(kurulum_yazilim)) ~ '_mod', default='otomatik') == 'otomatik'
          else lookup('ansible.builtin.vars', 'kurulum_' ~ (k_sabit_yz | default(kurulum_yazilim)) ~ '_mod')) }}
     k_ana: "{{ kurulum_ana_klasor | trim | regex_replace('/+$', '') if kurulum_ana_klasor | trim != '/' else '/' }}"

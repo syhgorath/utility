@@ -1,6 +1,6 @@
 # Salt okunur durum: ana klasör, Docker, kurulu yazılımlar ve portlar. Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
 # Genel özet; uygulama ayrıntıları (mod, port, sürüm, erişim) <uyg>_durum eylemlerindedir. kurulu ve portlar değerleri 64 karakterde KESİLİR (README "Sonuç satırı sınırı").
-# Sonuç satırı: SSHPOCKET_RESULT utility.kurulum_durum ana_durum=… docker=… kurulu=… portlar=… nginx_kurulu=… mariadb_kurulu=… redis_kurulu=… docker_kurulu=evet|durmus|hayir|unknown docker_servis=evet|durmus|yok|unknown
+# Sonuç satırı: SSHPOCKET_RESULT utility.kurulum_durum ana_durum=… docker=… kurulu=… portlar=… nginx_kurulu=… mariadb_kurulu=… redis_kurulu=… proxy_kurulu=… docker_kurulu=evet|durmus|hayir|unknown docker_servis=evet|durmus|yok|unknown
 - name: kurulum durum (salt okunur)
   hosts: utility
   gather_facts: true
@@ -21,7 +21,7 @@
       ansible.builtin.include_role: {name: port_kaydi, tasks_from: durum}
     - name: Applications (actual server state)
       ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/uygulama_durum.yml"
-      loop: [nginx, mariadb, redis]
+      loop: [nginx, mariadb, redis, proxy]
       loop_control:
         loop_var: k_d_yz
     - name: Docker service
@@ -45,5 +45,6 @@
           nginx_kurulu={{ k_st.nginx.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           mariadb_kurulu={{ k_st.mariadb.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           redis_kurulu={{ k_st.redis.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          proxy_kurulu={{ k_st.proxy.kurulu | string | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
           docker_kurulu={{ k_docker_kurulu }}
           docker_servis={{ k_docker_servis }}

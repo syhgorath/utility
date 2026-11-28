@@ -8,7 +8,7 @@
       docker_ag: "{{ k_docker_ag | default(k_isaret.docker_ag | default('kurulum')) }}"
       yazilimlar: >-
         {{ (k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | list | items2dict)
-           | combine({} if (k_sil | default(false) | bool) else {k_yz: k_kayit}) }}
+           | combine({} if (k_sil | default(false) | bool) else {k_yz: k_kayit | combine(k_kayit_ek | default({}))}) }}
       kaldirilan: >-
         {{ (k_isaret.kaldirilan | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | list | items2dict)
            | combine({k_yz: k_kayit} if (k_sil | default(false) | bool) else {}) }}

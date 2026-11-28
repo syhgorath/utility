@@ -13,7 +13,7 @@ setup_file() {
   krun kurulum_durum
   [ "$status" -eq 0 ]
   [ "$(recap_changed)" = 0 ]
-  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir mariadb_kurulu=hayir redis_kurulu=hayir docker_kurulu=hayir docker_servis=yok" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir mariadb_kurulu=hayir redis_kurulu=hayir proxy_kurulu=hayir docker_kurulu=hayir docker_servis=yok" ]
 }
 
 @test "Docker yokken docker modu durur ve HİÇBİR ŞEY oluşturmaz" {
@@ -190,7 +190,7 @@ setup_file() {
 @test "durum: kurulu yazılımlar ve portlar" {
   krun kurulum_durum
   [ "$status" -eq 0 ]
-  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet mariadb_kurulu=evet redis_kurulu=evet docker_kurulu=evet docker_servis=evet" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379 nginx_kurulu=evet mariadb_kurulu=evet redis_kurulu=evet proxy_kurulu=hayir docker_kurulu=evet docker_servis=evet" ]
   krun nginx_durum
   [ "$(result)" = "SSHPOCKET_RESULT utility.nginx_durum ana_durum=tamam nginx_kurulu=evet nginx_mod=docker nginx_port=8080 nginx_surum=1.31.8 nginx_erisim=sunucu nginx_duvar=gerekmez nginx_duvar_engel=hayir" ]
   krun mariadb_durum
