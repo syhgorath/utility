@@ -2,7 +2,7 @@
 
 [sshpocket](https://github.com/syhgorath/sshpocket) paketi (kimlik `utility`; repo adı şimdilik `kurulum`): iki iş bir arada.
 1. **Sunucu ayarları:** saat dilimi, sistem dili (`LANG`) ve **NTP** (chrony) menüden, önizleyerek, yedekleyerek ve onayla. Ayrıntı: [docs/saat-dil-ntp.md](docs/saat-dil-ntp.md) (eski `utility` v0.1.2 belgesi) ve aşağıdaki NTP bölümü.
-2. **Kurulum merkezi:** **Docker taban kurulumu, nginx, MariaDB ve Redis** (her biri **native** ya da **Docker** modunda) ve **[Nginx Proxy Manager](#nginx-proxy-manager)** (yalnız Docker), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**.
+2. **Kurulum merkezi:** **Docker taban kurulumu, nginx, MariaDB ve Redis** (her biri **native** ya da **Docker** modunda) ile **[Nginx Proxy Manager](#nginx-proxy-manager)** ve **[Redis Insight](#redis-insight)** (son ikisi yalnız Docker), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**.
 
 > **Durum: v0.2.1 (v0.2.0 birleştirme sürümü yayında; 0.2.1 `ntp_durum` kaynak listesini ve `release-publish.sh` düzeltmesini ekler).** Eski `utility` paketi (v0.1.2) bu pakete taşındı. Kimlik `utility` olduğundan sonuç satırı öneki `utility.*` oldu (kurulum eylemleri artık `utility.kur` vb.). **Denenmedi (gerçek VM):** birleştirilmiş paket, `ntp_durum`/`ntp_ayarla`, chrony ile `systemd-timesyncd` birlikte etkinken davranış, `utility/durum` anahtar uyumunun sshpocket tarafında. Kurulum eylemleri için v0.1.0 notları geçerli: LAB tam, gerçek VM turu kısmen ([docs/vm-turu.md](docs/vm-turu.md)); V01–V05 düzeltmeleri ve hardening'li tur gerçek VM'de doğrulanmadı. Utility eylemleri v0.1.2'de Ubuntu 26.04 ve Debian 13.7'de gerçek VM'de denendi ([docs/saat-dil-ntp.md](docs/saat-dil-ntp.md)).
 
@@ -28,10 +28,11 @@ Sunucu ayarları (eski `utility`; eylem adları, anahtarlar ve davranış **değ
 Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `utility.*`, `durum`/`preview` kurulum karşılıkları yeniden adlandırıldı):
 | Eylem | Etki | Onay | Ne yapar |
 |---|---|---|---|
-| `kurulum_durum` | salt okunur | – | **Genel özet** (eski `kurulum/durum`): `ana_durum=… docker=… kurulu=… portlar=…`, her uygulama için `<uyg>_kurulu=evet\|durmus\|hayir\|unknown` (`nginx`, `mariadb`, `redis`, `proxy`, `docker`) ve `docker_servis=evet\|durmus\|yok\|unknown`. Mod, port, sürüm ve erişim uygulamanın kendi okumasındadır. `kurulu`/`portlar` için [sonuç satırı sınırı](#sonuç-satırı-sınırı) |
+| `kurulum_durum` | salt okunur | – | **Genel özet** (eski `kurulum/durum`): `ana_durum=… docker=… kurulu=… portlar=…`, her uygulama için `<uyg>_kurulu=evet\|durmus\|hayir\|unknown` (`nginx`, `mariadb`, `redis`, `proxy`, `redisui`, `docker`) ve `docker_servis=evet\|durmus\|yok\|unknown`. Mod, port, sürüm ve erişim uygulamanın kendi okumasındadır. `kurulu`/`portlar` için [sonuç satırı sınırı](#sonuç-satırı-sınırı) |
 | `docker_durum` | salt okunur, **sudo yok** | – | Yalnız Docker tabanı: `docker_kurulu=evet\|durmus\|hayir\|unknown docker_servis=evet\|durmus\|yok\|unknown docker=yok\|resmi\|dagitim\|snap\|diger` (snap/paket dışı Docker'da ilk ikisi `unknown`) |
 | `nginx_durum` / `mariadb_durum` / `redis_durum` | salt okunur | – | Yalnız o uygulama, **sunucudan** okunur: `ana_durum=… <uyg>_kurulu=evet\|durmus\|hayir\|unknown <uyg>_mod=… <uyg>_port=<N>\|ic <uyg>_surum=<etiket>\|dagitim <uyg>_erisim=ic\|sunucu\|agdan` (kurulu değilken `yok`, okunamazsa `unknown`), `<uyg>_duvar=…` ve `<uyg>_duvar_engel=evet\|hayir\|unknown` ([güvenlik duvarı bilgisi](#güvenlik-duvarı-bilgisi)) |
 | `proxy_durum` | salt okunur | – | Yalnız Nginx Proxy Manager: `ana_durum=… proxy_kurulu=… proxy_mod=docker proxy_port=80 proxy_surum=<etiket> proxy_yonetim=agdan\|sunucu proxy_adres=<adres>:81 proxy_duvar=atlanir\|gerekmez` (kurulu değilken `yok`, okunamazsa `unknown`) |
+| `redisui_durum` | salt okunur | – | Yalnız Redis Insight: `ana_durum=… redisui_kurulu=… redisui_mod=docker redisui_port=<N>\|ic redisui_surum=<etiket> redisui_erisim=ic\|sunucu redisui_hedef=kurulum-redisui:5540` (kurulu değilken `yok`, okunamazsa `unknown`) |
 | `kurulum_onizle` | salt okunur (`--check --diff`) | – | `kur`'un aynı görevleri `--check` ile; `degisen=<N> yukseltme=evet\|hayir` (eski `kurulum/preview`; `kur`/`yukselt`/`kaldir` bunu ön koşul ister) |
 | `kur` | `installs-package`, `changes-config` | `yes-no`, `kurulum_onizle` ön koşul | Seçili yazılımı kurar. İkinci çalıştırma `changed=0`. **Sürümü sessizce değiştirmez** |
 | `yukselt` | + `destructive` | `type-server-name`, `kurulum_onizle` ön koşul | Yalnızca **docker** modunda, daha **yeni** sürüme; önce döküm/yedek. **Geri düşürme yok** |
@@ -40,6 +41,7 @@ Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `uti
 | `nginx_kur` | `installs-package`, `changes-config` | `yes-no`, `nginx_onizle` ön koşul | nginx'i kurar ya da port/erişimi uygular. Kurulu nginx'in **modu korunur** (`kurulum_mod` yalnız yeni kurulumda); sürüm değiştirmez |
 | `nginx_yukselt` | + `destructive` | `type-server-name`, `nginx_onizle` ön koşul | Docker modunda kurulu nginx'i daha yeni sürüme yükseltir |
 | `proxy_onizle` / `proxy_kur` / `proxy_yukselt` | `nginx_*` ile aynı | aynı | [Nginx Proxy Manager](#nginx-proxy-manager)'a sabit; yalnız Docker; 80, 443 ve 81 boş olmalı |
+| `redisui_onizle` / `redisui_kur` / `redisui_yukselt` | `nginx_*` ile aynı | aynı | [Redis Insight](#redis-insight)'a sabit; yalnız Docker; bu paketin Docker Redis'i gerekir |
 | `docker_onizle` / `docker_kur` | `kurulum_onizle` / `kur` gibi | `docker_kur`: `yes-no`, `docker_onizle` ön koşul | Docker tabana sabit; Docker yoksa kurar, kuruluysa dokunmaz |
 | `docker_yukselt` | `changes-config` | `yes-no` | **Her zaman reddeder** (Docker taban yükseltmesi desteklenmez); hiçbir şey değiştirmez |
 | `mariadb_onizle` / `mariadb_kur` / `mariadb_yukselt`, `redis_onizle` / `redis_kur` / `redis_yukselt` | `nginx_*` ile aynı | aynı | Uygulamaya sabit; kurulu mod korunur; `*_yukselt` yalnız docker modunda (önce döküm/veri kopyası) |
@@ -48,10 +50,10 @@ Kurulum çıktısı tek satırdır: `SSHPOCKET_RESULT utility.<eylem> yazilim=�
 
 **Ayar kartları (v0.2.1):** `component.json`'daki üst düzey `settings` alanı NTP sunucuları, saat adımlama, kontrol makinesinden saat, saat dilimi ve LANG için KeyLab'a kart tanımı verir (hangi değişken, hangi eylemle uygulanır, gerçek değer hangi durum anahtarından okunur). Ayarlar `setting_cards`'taki iki karta ayrılır: **Saat (NTP)** (üç NTP/saat ayarı) ve **Sistem** (saat dilimi, LANG). Saat kartı `ntp_durum`'dan bir sağlık özeti gösterir: uyarı yalnız senkron, sapma (1000 ms) ve kontrol makinesine farktan (300 sn) gelir; chrony ve seçili kaynak yalnız bilgidir. Paketin davranışını değiştirmez; kartları desteklemeyen KeyLab sürümleri bu alanları yok sayar. Boş NTP listesi sunucudaki `utility.sources`'a dokunmaz.
 
-**Uygulama kartları (KeyLab docker, nginx, mariadb, redis, proxy):** her kartın özeti ve ayarlarının sunucudaki değeri kartın kendi okumasından (`<uyg>_durum`) gelir. `nginx_*`, `mariadb_*`, `redis_*` eylemleri değer verilmeyen değişkeni **varsayılanına** döndürür (ör. port 8080'e); kurulu uygulamada port ya da erişim değişecekse çıktıda `DEĞİŞECEK` satırı görünür. Uygulama başına mod `kurulum_<yz>_mod` (`otomatik` = `kurulum_mod`; kurulu uygulamanın modu değiştirilemez). Durum anahtarları sunucudan okunur (docker inspect ya da systemd + `ss` + `dpkg`); yalnız "bu paket yönetiyor mu" ve mod, sunucudaki kayıttan gelir. Port ve erişim yalnız uygulama çalışırken bilinir (değilse `unknown`), yalnız iç ağda `<uyg>_port=ic`. Native modda `<uyg>_surum=dagitim` (paket sürümü yalnız ekran çıktısında; `kurulum_<yz>_surum` native'de etkisizdir). Native servislerde `kur` istenen adres ve portun gerçekten dinlendiğini doğrular.
+**Uygulama kartları (KeyLab docker, nginx, mariadb, redis, proxy, redisui):** her kartın özeti ve ayarlarının sunucudaki değeri kartın kendi okumasından (`<uyg>_durum`) gelir. `nginx_*`, `mariadb_*`, `redis_*` eylemleri değer verilmeyen değişkeni **varsayılanına** döndürür (ör. port 8080'e); kurulu uygulamada port ya da erişim değişecekse çıktıda `DEĞİŞECEK` satırı görünür. Uygulama başına mod `kurulum_<yz>_mod` (`otomatik` = `kurulum_mod`; kurulu uygulamanın modu değiştirilemez). Durum anahtarları sunucudan okunur (docker inspect ya da systemd + `ss` + `dpkg`); yalnız "bu paket yönetiyor mu" ve mod, sunucudaki kayıttan gelir. Port ve erişim yalnız uygulama çalışırken bilinir (değilse `unknown`), yalnız iç ağda `<uyg>_port=ic`. Native modda `<uyg>_surum=dagitim` (paket sürümü yalnız ekran çıktısında; `kurulum_<yz>_surum` native'de etkisizdir). Native servislerde `kur` istenen adres ve portun gerçekten dinlendiğini doğrular.
 
 ### Sonuç satırı sınırı
-Sonuç satırındaki her değer **en çok 64 karakterdir**; uzun değer **uyarısız kesilir**. `kurulum_durum`'un `kurulu` (`<uyg>:<mod>`, `+` ile) ve `portlar` (`<uyg>:<port>`) listeleri uygulama sayısıyla uzar: bu listelere giren dört kimlikle (docker, nginx, mariadb, redis) `kurulu` en çok 54, `portlar` en çok 37 karakterdir. **`proxy` bu iki listeye girmez** (`kurulum_ozet_disi`); onun için `proxy_kurulu` ve `proxy_durum` okunur. Küratörlü listeye uygulama eklenip en uzun hali 64'ü aşarsa `scripts/check-consistency.py` (CI) **düşer**; o zaman listenin biçimi değiştirilmelidir. Güvenilir kaynak uygulama başına anahtarlardır (`<uyg>_kurulu`, `<uyg>_port`). Bir eylem en çok 20 anahtar bildirir; yeni uygulamanın ayrıntıları kendi `<uyg>_durum` eylemine yazılır.
+Sonuç satırındaki her değer **en çok 64 karakterdir**; uzun değer **uyarısız kesilir**. `kurulum_durum`'un `kurulu` (`<uyg>:<mod>`, `+` ile) ve `portlar` (`<uyg>:<port>`) listeleri uygulama sayısıyla uzar: bu listelere giren dört kimlikle (docker, nginx, mariadb, redis) `kurulu` en çok 54, `portlar` en çok 37 karakterdir. **`proxy` ve `redisui` bu iki listeye girmez** (`kurulum_ozet_disi`); onlar için `<uyg>_kurulu` ve kendi okumaları kullanılır. Küratörlü listeye uygulama eklenip en uzun hali 64'ü aşarsa `scripts/check-consistency.py` (CI) **düşer**; o zaman listenin biçimi değiştirilmelidir. Güvenilir kaynak uygulama başına anahtarlardır (`<uyg>_kurulu`, `<uyg>_port`). Bir eylem en çok 20 anahtar bildirir; yeni uygulamanın ayrıntıları kendi `<uyg>_durum` eylemine yazılır.
 
 ### NTP eylemleri (v0.2.0)
 - **Tek sahip:** yalnızca chrony yazılır (`/etc/chrony/sources.d/utility.sources`, `chrony.conf`'a dokunulmaz). `systemd-timesyncd`/`ntp`/`ntpsec` **kapatılmaz**: biri chrony ile birlikte etkinse `ntp_durum` bunu `hizmetler=a+b` ile gösterir, karar sizindir. Debian 13'te chrony kurulumu timesyncd'yi paket çakışmasıyla kaldırmıştı (v0.1.2 VM turu); Ubuntu 26.04'te birlikte davranışı **denenmedi**.
@@ -65,7 +67,7 @@ Sunucu ayarları değişkenleri (`utility_timezone`, `utility_locale`, `utility_
 Kurulum değişkenleri:
 | Değişken | Tür | Varsayılan | Anlamı |
 |---|---|---|---|
-| `kurulum_yazilim` | enum | `docker` | `docker` (taban) · `nginx` · `mariadb` · `redis` · `proxy` (yalnız Docker). Eylemler seçili yazılım için çalışır |
+| `kurulum_yazilim` | enum | `docker` | `docker` (taban) · `nginx` · `mariadb` · `redis` · `proxy` · `redisui` (son ikisi yalnız Docker). Eylemler seçili yazılım için çalışır |
 | `kurulum_<yz>_mod` | enum | `otomatik` | `otomatik` (= `kurulum_mod`) · `native` · `docker`; kurulu uygulamada değiştirilemez |
 | `kurulum_mod` | enum | `native` | `native` (apt) · `docker`. `docker` yazılımı için yok sayılır. Bir yazılım için **tek mod** |
 | `kurulum_ana_klasor` | path | `/srv/homelab` | Docker uygulamalarının klasörü; sunucu başına bir kez (aşağıda) |
@@ -74,6 +76,8 @@ Kurulum değişkenleri:
 | `kurulum_<yz>_erisim` | enum | `otomatik` | `ic` (yalnız iç ağ, port yok; yalnız docker) · `sunucu` (`127.0.0.1`) · `agdan` (`0.0.0.0`). `otomatik`: docker'da iç ağdaki uygulama orada kalır; diğerlerinde `kurulum_dis_erisim=true` ise `agdan`, `false` (varsayılan) ise yeni docker mariadb/redis `ic`, ötekiler `sunucu` (**dışarı açık uygulama `otomatik`'e çevrilirse kapanır**) |
 | `kurulum_proxy_yonetim` | enum | `otomatik` | Nginx Proxy Manager yönetim ekranı (81): `otomatik` ([genel adres varsa `sunucu`](#yönetim-ekranının-yayını-otomatik)) · `agdan` (`0.0.0.0`) · `sunucu` (`127.0.0.1`). 80/443 her zaman ağa açık |
 | `kurulum_proxy_surum` | enum | 2.17.1 | `2.17.0` · `2.17.1` (**latest yok**) |
+| `kurulum_redisui_erisim` | enum | `ic` | Redis Insight: `ic` (port yok) · `sunucu` (`127.0.0.1:5540`). Ağa açma seçeneği yok |
+| `kurulum_redisui_surum` | enum | 3.10.2 | `3.10.1` · `3.10.2` (**latest yok**) |
 | `kurulum_docker_ag` | string | `kurulum` | Docker uygulamalarının ortak ağı; docker uygulaması kuruluyken değiştirilemez |
 | `kurulum_<yz>_port` | int | 8080 / 3306 / 6379 | Sunucuya yayınlanan port |
 | `kurulum_<yz>_surum` | enum | 1.30.6 / 11.4.13 / 7.4.12 | Küratörlü imaj sürümü (docker modu; **latest yok**) |
@@ -175,6 +179,29 @@ Kural: ad `kurulum-<uygulama>`, port konteyner portu (nginx 80). **Native** kuru
 - Kaldırma: `kurulum_yazilim=proxy` ile `kaldir`. Konteyner gider; hesap, yönlendirmeler ve sertifikalar kalır, yeniden kurunca geri gelir.
 - NPM açılışta internetten IP aralığı listeleri ve gerektiğinde certbot eklentileri indirir; sunucunun giden bağlantısı kapalıysa davranış **denenmedi**.
 
+## Redis Insight
+Redis'in resmi web arayüzü (kimlik `redisui`). **Lisansı SSPL v1'dir** (OSI onaylı açık kaynak değildir); paket yalnız resmi imajı çeker, dağıtmaz (hukuki yorum değildir). Lisans ve kullanım koşullarını **ilk açılışta arayüzde siz onaylarsınız**: paket sizin adınıza onaylamaz.
+
+> **Arayüzün KENDİ GİRİŞİ YOKTUR.** Ekrana ulaşan herkes Redis verisini okuyup değiştirebilir. Bu yüzden ağa açma seçeneği yoktur. **Ortak Docker ağındaki her konteyner** (proxy dahil, diğer uygulamalarınız da) `kurulum-redisui:5540` adresine girişsiz ulaşır.
+
+- **Gerek:** bu paketin **Docker modunda** kurduğu Redis (`redis_kur`, `kurulum_redis_mod=docker`). Redis yoksa ya da native ise hiçbir şey değiştirilmeden durulur. Redis'i kaldırırsanız arayüz çalışmaya devam eder ama bağlanamaz.
+- **Erişim:** `kurulum_redisui_erisim` = `ic` (varsayılan; sunucuda port yayınlanmaz) ya da `sunucu` (`127.0.0.1:5540`; `ssh -L 5540:127.0.0.1:5540 <kullanıcı>@<sunucu>`, sonra `http://127.0.0.1:5540`).
+- **Bağlantı:** `RI_REDIS_HOST=kurulum-redis`, port 6379; parola sunucuda `<ana>/redis/.env`'den `<ana>/redisui/.env`'e (0600) kopyalanır. Redis parolasını değiştirirseniz `redisui_kur` yeniden kopyalar ve konteyneri yeniden yaratır. Tanımlı bağlantı **koşulları onayladıktan sonra** listede görünür (kaynak kodu 3.10.2; LAB'da onay verilmediği için **doğrulanmadı**).
+- **Şifreleme anahtarı:** `RI_ENCRYPTION_KEY` sunucuda üretilir, `<ana>/redisui/.env`'de 0600 durur; yükseltmede ve yeniden kurulumda korunur. Anahtar kaybolursa arayüzün sakladığı veriler okunamaz. Onay ekranındaki şifreleme seçeneğinin davranışı **doğrulanmadı**.
+
+### Nginx Proxy Manager ile açmak
+1. Redis Insight `ic` modunda kurulu olsun (varsayılan).
+2. NPM'de **Access Lists** altında kullanıcı adı ve güçlü parolayla bir erişim listesi oluşturun. **Bunu yapmadan yönlendirme eklemeyin.**
+3. **Proxy Hosts → Add**: Domain Names = ayrı bir alt alan adı, Scheme = `http`, Forward Hostname = `kurulum-redisui`, Forward Port = `5540`, **Websockets Support** açık, **Access List** = 2. adımdaki liste. SSL sekmesinden sertifika isteyip HTTPS'i zorunlu yapın (aksi halde parola düz gider).
+4. Alt yol (`/redisinsight` gibi) yerine ayrı alan adı kullanın.
+
+**Doğrulanmadı:** NPM ekran adları, websocket ayarının gerekliliği, erişim listesiyle birlikte arayüzün çalışması ve uzun isteklerde zaman aşımı (Redis belgesi vekil sunucuda 30 saniyeden uzun istek süresi ister).
+
+### Sürüm, yükseltme, kaldırma
+- Sabit etiket `redis/redisinsight:3.10.2` (varsayılan; 2026-11-24 hata düzeltme yayını). `3.10.1` yükseltme yolu için listededir; ikisi de 3.10.0'daki güvenlik güncellemesini içerir. amd64 ve arm64 imajı vardır.
+- `redisui_yukselt` konteyneri durdurup `data/` ve `.env` kopyasını `<ana>/redisui/yedek/<tarih>/` altına alır (0700). Geri düşürme yoktur.
+- Kaldırma: `kurulum_yazilim=redisui` ile `kaldir`. Konteyner gider; veri ve anahtar kalır. Redis'e dokunulmaz.
+
 ## Yükseltme, kaldırma ve geri alma kapsamı (dürüstçe)
 - **Yükseltme (`yukselt`)** yalnızca docker modunda ve daha yeni sürüme: önce döküm/yedek (`<ana>/<yazılım>/yedek/<tarih>/`, dizin 0700, dosya 0600; MariaDB `mariadb-dump --all-databases`, Redis `SAVE` + veri kopyası, nginx web kökü ve compose.yml), sonra yeni imaj çekilir, sonra compose güncellenir. **Geri düşürme yoktur**; eski sürüme dönmek için yedeği kendiniz geri yüklersiniz (bu paket geri yüklemeyi yapmaz). **Native sürüm yükseltme v0.1'de yok** (apt'i kendiniz yönetin).
 - **Kaldır (`kaldir`)** veriye dokunmaz: docker modunda `compose down` (`-v` yok); veri klasörü, `.env` (parola) ve `compose.yml` kalır. Native'de servis durur/devre dışı kalır, paket `apt remove` ile çıkar (**purge yok**), yapılandırma ve veri kalır. Kaldırılan yazılım işarette `kaldirilan` altında kalır; yeniden `kur` aynı veriyi ve aynı parolayı kullanır. Docker taban kaldırma v0.1'de yok.
@@ -191,6 +218,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 | **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook) | ✅ Docker taban (kur, ikinci kur changed=0); docker modu nginx/MariaDB/Redis kur + ikinci kur changed=0, parola sızıntısı 0 eşleşme, **yükseltme** (MariaDB 10.11.19→11.4.13 veri duruyor, Redis 7.2.17→7.4.12 anahtar duruyor, nginx 1.30.6→1.31.8), **kaldır** (veri/.env/compose kalır; Redis yeniden kur veri ve parolayı korudu); **native** nginx/MariaDB/Redis kur + ikinci kur changed=0. Ayrıntı CHANGELOG |
 | Gerçek VM: V04 (indeks toparlama) ve V05 (saat sapması uyarısı) düzeltmeleri — LAB'da sınandı (faketime), VM'de **denenmedi** | **denenmedi** |
 | Gerçek VM: hardening'li iki sıralı tur, native Redis'te yeni parola üretimi, düzeltilmiş native Redis `preview`, sshpocket menüsü | **denenmedi** |
+| LAB: `lab-redisui.bats` (Redis Insight: docker Redis ön koşulu, erişim, parola/anahtar gizliliği, yükseltme) | 15/15. Koşullar **kabul edilmedi**: onaydan sonraki arayüz, tanımlı bağlantının görünmesi ve NPM üzerinden erişim **denenmedi**; gerçek VM **denenmedi** |
 | Debian 13 (konteyner dahil); `kurulum_docker_kaynak=dagitim` | **denenmedi** (yalnızca Debian deposunun varlığı `apt -s` ile görüldü). Profil `planned` kalır; v0.1.0 yalnızca Ubuntu 26.04 içindir |
 | amd64 (LAB arm64) | **denenmedi** |
 
@@ -199,7 +227,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 python3.13 -m venv .venv && .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
 python3 -I tools/validate/component_validate.py . --strict --unsigned
 test/run-all.sh
-LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats test/e2e/lab-apt.bats test/e2e/lab-duvar.bats test/e2e/lab-proxy.bats   # Colima/Docker gerekir
+LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats test/e2e/lab-apt.bats test/e2e/lab-duvar.bats test/e2e/lab-proxy.bats test/e2e/lab-redisui.bats   # Colima/Docker gerekir
 ```
 LAB notu: iç içe Docker için `/var/lib/docker` ve `/var/lib/containerd` ayrı volume'dür (yalnızca LAB; gerçek VM'de gerekmez). Ağda TLS'i araya giren bir güvenlik yazılımı varsa kök sertifikası yalnızca LAB konteynerine eklenir (`LAB_CA_FILE`); doğrulama kapatılmaz, paket buna bağımlı değildir.
 Yayın: `scripts/release.sh` / `release-publish.sh` (imza anahtarı ve yayın **kullanıcıdadır**). `release-publish.sh` Release doğrulandıktan sonra imzalı paket indeksini (`syhgorath/sshpocket-index`, `SSHPOCKET_INDEX_DIR`) günceller; normal sürümde `components.lock` PR'ı **gerekmez**. İndeks hatası Release'i geçersiz kılmaz: `index-publish.sh` tek başına yeniden çalıştırılabilir. İndeks deposunda yalnızca yerel commit oluşur, push kullanıcıdadır.

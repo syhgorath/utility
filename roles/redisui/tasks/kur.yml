@@ -1,0 +1,3 @@
+# Redis Insight yalnız docker modunda kurulur (preflight k_mod'u docker yapar).
+- name: Docker mode
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kur.yml"

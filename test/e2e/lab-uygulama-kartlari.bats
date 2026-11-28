@@ -42,13 +42,13 @@ setup_file() {
   "$BATS_TEST_DIRNAME/lab/up.sh" >&3
 }
 
-@test "durum (temiz sunucu): uygulama okumaları yok/hayir der; genel özet 10 anahtar" {
+@test "durum (temiz sunucu): uygulama okumaları yok/hayir der; genel özet 11 anahtar" {
   beklenen mariadb hayir yok yok yok yok
   beklenen redis hayir yok yok yok yok
   beklenen nginx hayir yok yok yok yok
   docker_beklenen hayir yok yok
   krun kurulum_durum
-  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir mariadb_kurulu=hayir redis_kurulu=hayir proxy_kurulu=hayir docker_kurulu=hayir docker_servis=yok" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok nginx_kurulu=hayir mariadb_kurulu=hayir redis_kurulu=hayir proxy_kurulu=hayir redisui_kurulu=hayir docker_kurulu=hayir docker_servis=yok" ]
 }
 
 @test "docker_onizle yazmaz; docker_kur hedefi sabit (kurulum_yazilim=redis etkisiz) ve Docker'ı kurar" {
@@ -265,9 +265,9 @@ setup_file() {
   [ "$(anahtar nginx_mod)" = docker ]
 }
 
-@test "sonuç satırı sözleşmesi: genel özet 10 anahtar, kurulu/portlar KESİLMEDEN; her değer en çok 64 karakter" {
+@test "sonuç satırı sözleşmesi: genel özet 11 anahtar, kurulu/portlar KESİLMEDEN; her değer en çok 64 karakter" {
   krun kurulum_durum
-  [ "$(anahtarlar)" = "ana_durum docker kurulu portlar nginx_kurulu mariadb_kurulu redis_kurulu proxy_kurulu docker_kurulu docker_servis" ]
+  [ "$(anahtarlar)" = "ana_durum docker kurulu portlar nginx_kurulu mariadb_kurulu redis_kurulu proxy_kurulu redisui_kurulu docker_kurulu docker_servis" ]
   [ "$(anahtar kurulu)" = "docker:native+mariadb:native+nginx:docker+redis:native" ]
   [ "$(anahtar portlar)" = "mariadb:3307+redis:6380" ]
   for e in kurulum_durum docker_durum nginx_durum mariadb_durum redis_durum; do

@@ -1,0 +1,29 @@
+# kurulum tarafından üretildi (Redis Insight). Elle düzenlenirse sonraki kur/yukselt bu dosyayı yeniden yazar. Gizli değer bu dosyada YOK: şifreleme anahtarı
+# ve Redis parolası .env içindedir (0600). Kullanım koşullarını önceden onaylayan ortam değişkeni bilerek verilmez: onayı kullanıcı arayüzde verir.
+# Ağa açık yayın YOKTUR (arayüzün kendi girişi yok): ya port yayınlanmaz ya da yalnız 127.0.0.1.
+services:
+  redisui:
+    image: {{ k_imaj }}
+    container_name: kurulum-redisui
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RI_REDIS_HOST: "kurulum-redis"
+      RI_REDIS_PORT: "6379"
+      RI_REDIS_ALIAS: "kurulum-redis"
+{% if k_erisim != 'ic' %}
+    ports:
+      - "127.0.0.1:{{ k_port }}:5540"
+{% endif %}
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5540/api/health/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+networks:
+  default:
+    name: {{ kurulum_docker_ag }}
+    external: true

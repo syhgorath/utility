@@ -221,6 +221,16 @@
       (ortak docker ağındaki konteynerler dahil) yöneticiyi kendisi oluşturabilir. Bu paket parola üretmez, istemez ve NPM'ye giriş yapmaz.
   when: k_yz == 'proxy' and kurulum_islem != 'kaldir'
 
+- name: Warn that Redis Insight has no login of its own
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI Redis Insight'ın KENDİ GİRİŞİ YOKTUR: ekrana ulaşan herkes Redis verisini okuyup değiştirebilir. '{{ k_docker_ag }}' ağındaki her konteyner
+      kurulum-redisui:5540 adresine ulaşır. Tarayıcıdan açmak için ya Nginx Proxy Manager'da ERİŞİM LİSTESİ (kullanıcı/parola) tanımlı bir yönlendirme ekleyin
+      (hedef kurulum-redisui:5540) ya da {{ 'SSH tüneli kullanın: ssh -L 5540:127.0.0.1:5540 <kullanıcı>@<sunucu>, sonra http://127.0.0.1:5540.' if k_erisim == 'sunucu'
+      else 'kurulum_redisui_erisim=sunucu seçip SSH tüneli kullanın.' }} Lisans ve kullanım koşullarını ilk açılışta arayüzde SİZ onaylarsınız (paket sizin adınıza
+      onaylamaz); tanımlı Redis bağlantısı onaydan sonra görünür.
+  when: k_yz == 'redisui' and kurulum_islem != 'kaldir'
+
 - name: Show the ufw suggestion for an exposed native service
   ansible.builtin.debug:
     msg: >-

@@ -1,0 +1,9 @@
+# Kaldır: veriye dokunmaz (<ana>/redisui/data ve .env kalır: ayarlar ve şifreleme anahtarı durur). Redis'e dokunulmaz.
+- name: Remove docker mode
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kaldir.yml"
+  when: k_kurulu
+
+- name: Nothing to remove
+  ansible.builtin.debug:
+    msg: "kurulum: redisui bu sunucuda kurulumla yönetilmiyor; yapılacak bir şey yok."
+  when: not k_kurulu

@@ -49,6 +49,13 @@
             quiet: true
           when: k_mod == 'docker' and kurulum_islem in ['kur', 'yukselt']
 
+        # Redis Insight yalnız bu paketin kurduğu docker Redis'e bağlanır
+        - name: Redis Insight needs the managed docker Redis
+          ansible.builtin.include_role:
+            name: redisui
+            tasks_from: onkosul
+          when: kurulum_islem in ['kur', 'yukselt'] and k_yz == 'redisui'
+
         # proxy'nin üç sabit portu birden boş olmalı (tek portlu denetim yetmez)
         - name: Proxy port check
           ansible.builtin.include_role:

@@ -212,6 +212,7 @@
           "mariadb_kurulu",
           "redis_kurulu",
           "proxy_kurulu",
+          "redisui_kurulu",
           "docker_kurulu",
           "docker_servis"
         ]
@@ -226,7 +227,8 @@
         "Önizleme dosya farkını ve plan sonucunu gösterir; paket kurulumu, imaj çekme, konteyner başlatma, servis ve parola üretimi --check'te ÇALIŞMAZ, gösterilmez.",
         "kurulum_yazilim ve kurulum_mod seçilen yazılımı belirler; kurulu sürüm istenenden farklıysa yukseltme=evet görünür (kur sürümü sessizce değiştirmez, yukselt gerekir).",
         "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host).",
-        "proxy (Nginx Proxy Manager) yalnız Docker'dır: 80/443 her zaman ağa açılır, yönetim ekranı (81) kurulum_proxy_yonetim ile seçilir (kurulum_dis_erisim etkisiz). Kurulumdan hemen sonra ilk girişi yapın."
+        "proxy (Nginx Proxy Manager) yalnız Docker'dır: 80/443 her zaman ağa açılır, yönetim ekranı (81) kurulum_proxy_yonetim ile seçilir (kurulum_dis_erisim etkisiz). Kurulumdan hemen sonra ilk girişi yapın.",
+        "redisui (Redis Insight) yalnız Docker'dır ve bu paketle kurulu Docker Redis ister; ağa açılamaz (kurulum_redisui_erisim: ic ya da sunucu), kendi girişi yoktur."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -261,7 +263,8 @@
         "nginx/mariadb/redis native kurulumunda paketin kurulum betiği servisi dağıtım varsayılanıyla kısaca başlatır; varsayılan port doluysa koşu başlamadan durur.",
         "İkinci kur değişiklik yapmaz (idempotent). Aynı sunucuda eşzamanlı iki koşu sunucudaki kilitle engellenir.",
         "Erişim kurulum_<yazılım>_erisim ile seçilir; yeni docker mariadb/redis port yayınlamaz. ufw'ye YAZILMAZ. Docker'ın yayınladığı port ufw'ye takılmaz: 'agdan' ağdaki herkese açıktır. Native 'agdan' için ufw kuralı önerisi çıktıdadır (hardening_ufw_extra_allow_host).",
-        "proxy (Nginx Proxy Manager) yalnız Docker'dır: 80/443 her zaman ağa açılır, yönetim ekranı (81) kurulum_proxy_yonetim ile seçilir (kurulum_dis_erisim etkisiz). Kurulumdan hemen sonra ilk girişi yapın."
+        "proxy (Nginx Proxy Manager) yalnız Docker'dır: 80/443 her zaman ağa açılır, yönetim ekranı (81) kurulum_proxy_yonetim ile seçilir (kurulum_dis_erisim etkisiz). Kurulumdan hemen sonra ilk girişi yapın.",
+        "redisui (Redis Insight) yalnız Docker'dır ve bu paketle kurulu Docker Redis ister; ağa açılamaz (kurulum_redisui_erisim: ic ya da sunucu), kendi girişi yoktur."
       ],
       "outputs": {
         "format": "keyvalue-line",
@@ -886,6 +889,118 @@
           "gizli"
         ]
       }
+    },
+    "redisui_durum": {
+      "cmd": "ansible-playbook playbooks/redisui_durum.yml",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur: yalnız ana klasör işaretini ve Redis Insight konteynerini sunucudan okur; hiçbir şeyi değiştirmez, arayüze bağlanmaz. İşaret dosyası root'a ait olduğundan sudo ister.",
+        "Ana klasör sunucuda X, yerelde Y ise ana_durum=uyusmuyor görünür; değiştiren eylemler bu durumda durur.",
+        "redisui_hedef Nginx Proxy Manager'a yazılacak hedeftir (ortak Docker ağında konteyner adı:iç port); bu hedefe proxy'den erişim denenmez."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redisui_durum",
+        "keys": [
+          "ana_durum",
+          "redisui_kurulu",
+          "redisui_mod",
+          "redisui_port",
+          "redisui_surum",
+          "redisui_erisim",
+          "redisui_hedef"
+        ]
+      }
+    },
+    "redisui_onizle": {
+      "cmd": "ansible-playbook playbooks/redisui_onizle.yml --check --diff",
+      "effects": [],
+      "requires_sudo": true,
+      "confirm": "none",
+      "warnings": [
+        "Salt okunur (--check --diff): redisui_kur'un ne yapacağını gösterir; imaj, konteyner ve gizli değer işlemleri çalışmaz.",
+        "Hedef sabittir: Redis Insight (kurulum_yazilim etkisiz). Yalnız Docker modunda kurulur; bu paketle Docker modunda kurulmuş Redis gerekir (yoksa ya da native ise hiçbir şey değiştirilmeden durur).",
+        "Değer verilmeyen değişken varsayılanına döner (erişim ic, küratörlü varsayılan sürüm): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redisui_onizle",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "redisui_kur": {
+      "cmd": "ansible-playbook playbooks/redisui_kur.yml",
+      "effects": [
+        "installs-package",
+        "changes-config"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "redisui_onizle"
+      ],
+      "confirm": "yes-no",
+      "warnings": [
+        "Redis Insight'ı kurar ya da erişim ayarını uygular; servis kısa süre kesilebilir. Kurulu sürümü DEĞİŞTİRMEZ (redisui_yukselt). İlk kurulum imaj indirdiği için dakikalar sürebilir.",
+        "Hedef sabittir: Redis Insight (kurulum_yazilim etkisiz). Yalnız Docker modunda kurulur; bu paketle Docker modunda kurulmuş Redis gerekir (yoksa ya da native ise hiçbir şey değiştirilmeden durur).",
+        "Redis Insight'ın kendi girişi YOK: ulaşan herkes Redis verisini okuyup değiştirir. Ağa açılamaz (ic ya da sunucu). Tarayıcı için Nginx Proxy Manager'da erişim listeli yönlendirme (kurulum-redisui:5540) ya da SSH tüneli kullanın.",
+        "Redis parolası sunucuda Redis'in .env dosyasından Redis Insight'ınkine (0600) kopyalanır; şifreleme anahtarı sunucuda üretilir ve korunur. İkisi de çıktıya ve compose dosyasına yazılmaz.",
+        "Lisans: SSPL (OSI onaylı açık kaynak değil) ve Redis'in kullanım koşulları. Koşulları ilk açılışta arayüzde siz onaylarsınız; paket sizin adınıza onaylamaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redisui_kur",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
+    },
+    "redisui_yukselt": {
+      "cmd": "ansible-playbook playbooks/redisui_yukselt.yml",
+      "effects": [
+        "installs-package",
+        "changes-config",
+        "destructive"
+      ],
+      "requires_sudo": true,
+      "requires": [
+        "redisui_onizle"
+      ],
+      "confirm": "type-server-name",
+      "warnings": [
+        "Yalnızca kurulu Redis Insight daha YENİ bir küratörlü sürüme yükseltilir; önce veri ve şifreleme anahtarı kopyalanır. GERİ DÜŞÜRME YOKTUR.",
+        "Hedef sabittir: Redis Insight (kurulum_yazilim etkisiz). Yalnız Docker modunda kurulur; bu paketle Docker modunda kurulmuş Redis gerekir (yoksa ya da native ise hiçbir şey değiştirilmeden durur).",
+        "O anki erişim değeri de uygulanır. Değer verilmeyen değişken varsayılanına döner (ic): değişecek port/erişim çıktıda DEĞİŞECEK satırıyla gösterilir.",
+        "Yedek alınırken ve yeni sürüm başlarken arayüz durur. Redis'e dokunulmaz."
+      ],
+      "outputs": {
+        "format": "keyvalue-line",
+        "prefix": "SSHPOCKET_RESULT utility.redisui_yukselt",
+        "keys": [
+          "yazilim",
+          "mod",
+          "surum",
+          "port",
+          "degisen",
+          "yukseltme",
+          "gizli"
+        ]
+      }
     }
   },
   "vars": [
@@ -946,11 +1061,12 @@
         "nginx",
         "mariadb",
         "redis",
-        "proxy"
+        "proxy",
+        "redisui"
       ],
       "default": "docker",
       "group": "Seçim",
-      "description": "Kurulacak yazılım: docker (taban), nginx, mariadb, redis, proxy (Nginx Proxy Manager; yalnız Docker). Eylemler seçili yazılım için çalışır."
+      "description": "Kurulacak yazılım: docker (taban), nginx, mariadb, redis, proxy (Nginx Proxy Manager), redisui (Redis Insight); son ikisi yalnız Docker. Eylemler seçili yazılım için çalışır."
     },
     {
       "name": "kurulum_mod",
@@ -961,7 +1077,7 @@
       ],
       "default": "native",
       "group": "Seçim",
-      "description": "native = dağıtım paketi (apt); docker = Docker konteyneri. docker ve proxy yazılımları için yok sayılır. Bir yazılım için tek mod."
+      "description": "native = dağıtım paketi (apt); docker = Docker konteyneri. docker, proxy ve redisui için yok sayılır. Bir yazılım için tek mod."
     },
     {
       "name": "kurulum_nginx_mod",
@@ -1177,6 +1293,28 @@
       "default": "2.17.1",
       "group": "proxy",
       "description": "Nginx Proxy Manager imaj sürümü (jc21/nginx-proxy-manager; sabit etiket, latest yok; küratörlü liste artan sırada). Yükseltme yalnızca yukselt eyleminde."
+    },
+    {
+      "name": "kurulum_redisui_erisim",
+      "type": "enum",
+      "values": [
+        "ic",
+        "sunucu"
+      ],
+      "default": "ic",
+      "group": "redisui",
+      "description": "Redis Insight erişimi. ic = port yayınlanmaz (yalnız ortak Docker ağı; tarayıcı için Nginx Proxy Manager). sunucu = 127.0.0.1:5540 (SSH tüneli). Ağa açma seçeneği yoktur: arayüzün kendi girişi yok."
+    },
+    {
+      "name": "kurulum_redisui_surum",
+      "type": "enum",
+      "values": [
+        "3.10.1",
+        "3.10.2"
+      ],
+      "default": "3.10.2",
+      "group": "redisui",
+      "description": "Redis Insight imaj sürümü (redis/redisinsight; sabit etiket, latest yok; küratörlü liste artan sırada). Yükseltme yalnızca yukselt eyleminde."
     }
   ],
   "setting_cards": [
@@ -1345,6 +1483,32 @@
           {
             "key": "proxy_duvar",
             "label": "Güvenlik duvarı"
+          }
+        ]
+      }
+    },
+    {
+      "id": "redisui",
+      "label": "Redis Insight",
+      "description": "Redis arayüzü (SSPL). Kendi girişi YOK: NPM'de erişim listeli yönlendirmeyle ya da SSH tüneliyle açın. Ortak Docker ağındaki her konteyner ulaşır.",
+      "summary": {
+        "action": "redisui_durum",
+        "items": [
+          {
+            "key": "redisui_kurulu",
+            "label": "Kurulu"
+          },
+          {
+            "key": "redisui_surum",
+            "label": "Sürüm"
+          },
+          {
+            "key": "redisui_erisim",
+            "label": "Erişim"
+          },
+          {
+            "key": "redisui_hedef",
+            "label": "NPM hedefi"
           }
         ]
       }
@@ -1788,6 +1952,50 @@
       "state": {
         "action": "proxy_durum",
         "key": "proxy_surum",
+        "absent": "yok"
+      }
+    },
+    {
+      "id": "redisui_erisim",
+      "card": "redisui",
+      "label": "Erişim",
+      "var": "kurulum_redisui_erisim",
+      "description": "Kendi girişi yok. ic: port açılmaz; NPM'de erişim listeli yönlendirme ekleyin (hedef kurulum-redisui:5540). sunucu: SSH tüneli ssh -L 5540:127.0.0.1:5540 <kullanıcı>@<sunucu>. Değer verilmezse ic.",
+      "value_labels": {
+        "ic": "port açılmaz; yalnız Docker ağından",
+        "sunucu": "yalnız bu sunucu (127.0.0.1)"
+      },
+      "risk": [
+        "restarts-service"
+      ],
+      "risk_note": "Değişince arayüz yeniden başlar. İki seçenekte de ortak Docker ağındaki her konteyner girişsiz ulaşır.",
+      "apply_via": [
+        "redisui_kur"
+      ],
+      "state": {
+        "action": "redisui_durum",
+        "key": "redisui_erisim",
+        "absent": "yok"
+      }
+    },
+    {
+      "id": "redisui_surum",
+      "card": "redisui",
+      "label": "Sürüm",
+      "var": "kurulum_redisui_surum",
+      "description": "Docker imaj sürümü; kurulu sürümü yalnız redisui_yukselt yükseltir. Değer verilmezse 3.10.2.",
+      "risk": [
+        "restarts-service",
+        "data-loss"
+      ],
+      "risk_note": "Yükseltme (redisui_yukselt) geri alınamaz: geri düşürme yoktur; arayüz kısa süre kesilir.",
+      "apply_via": [
+        "redisui_kur",
+        "redisui_yukselt"
+      ],
+      "state": {
+        "action": "redisui_durum",
+        "key": "redisui_surum",
         "absent": "yok"
       }
     }
